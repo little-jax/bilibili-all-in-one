@@ -107,6 +107,7 @@
     "src/auth.py",
     "src/auth_client.py",
     "src/downloader.py",
+    "src/emoji_client.py",
     "src/hot_monitor.py",
     "src/player.py",
     "src/publisher.py",
@@ -921,6 +922,51 @@
             "items": {
               "type": "string"
             }
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_emoji_client",
+      "description": "Bilibili native emoji pack browsing and suggestion helpers for more human-feeling replies/DMs.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "list_emoji_packages",
+              "get_emoji_package_detail",
+              "add_emoji_package",
+              "suggest_emojis"
+            ]
+          },
+          "business": {
+            "type": "string",
+            "description": "Emoji business context, for example reply."
+          },
+          "include_all": {
+            "type": "boolean"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "package_id": {
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
           }
         },
         "required": [

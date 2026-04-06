@@ -31,6 +31,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Operator triage**: classify inbound intent, estimate urgency, suggest tone, and flag review-required cases
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
+- **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs
 - **Productized outputs**: high-level workflows expose stable schema tags like `bilibili.client_workflows.<action>.v1`
 
 In short: it now feels like a real operator-facing skill, not a random endpoint wrapper.
@@ -57,6 +58,7 @@ python main.py client_workflows content_opportunity_brief '{"period": "week", "m
 python main.py asset_client list_video_favorite_lists '{"uid": 434156493}'
 python main.py asset_client get_video_favorite_list_content '{"media_id": 123456}'
 python main.py asset_client list_watch_later
+python main.py emoji_client suggest_emojis '{"business": "reply", "query": "doge", "limit": 5}'
 ```
 
 ## 📖 简介

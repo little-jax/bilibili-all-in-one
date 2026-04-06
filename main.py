@@ -30,6 +30,7 @@ from src.client_workflows import BilibiliClientWorkflows
 from src.creative_center_client import BilibiliCreativeCenterClient
 from src.auth_client import BilibiliAuthClient
 from src.asset_client import BilibiliAssetClient
+from src.emoji_client import BilibiliEmojiClient
 
 
 class BilibiliAllInOne:
@@ -81,6 +82,7 @@ class BilibiliAllInOne:
         self.creative_center = BilibiliCreativeCenterClient(auth=self.auth)
         self.auth_client = BilibiliAuthClient(auth=self.auth)
         self.asset_client = BilibiliAssetClient(auth=self.auth)
+        self.emoji_client = BilibiliEmojiClient(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -169,6 +171,10 @@ class BilibiliAllInOne:
             "bilibili_asset_client": lambda: self.asset_client,
             "asset_client": lambda: self.asset_client,
             "assets": lambda: self.asset_client,
+
+            "bilibili_emoji_client": lambda: self.emoji_client,
+            "emoji_client": lambda: self.emoji_client,
+            "emoji": lambda: self.emoji_client,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -204,6 +210,7 @@ async def main():
         print("  creative_center  - Creator analytics / KPI / dashboard snapshots")
         print("  auth_client      - QR-first login, session inspection, and auth cleanup")
         print("  asset_client     - Favorites, watch-later, and channel-series collections")
+        print("  emoji_client     - Bilibili native emoji packs and suggestion helpers")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -232,6 +239,7 @@ async def main():
         print("  python main.py auth_client verify_auth")
         print("  python main.py asset_client list_watch_later")
         print("  python main.py asset_client list_video_favorite_lists '{\"uid\": 434156493}'")
+        print("  python main.py emoji_client suggest_emojis '{\"business\": \"reply\", \"query\": \"doge\"}'")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

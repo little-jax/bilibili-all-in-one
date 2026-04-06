@@ -281,6 +281,83 @@ Examples:
 Important:
 These should remain **configurable heuristics**, not hardcoded truth claims.
 
+## Phase 6 — Asset / Discovery Sync
+
+### Status
+Queued.
+
+### Goal
+Synchronize the next high-value Bilibili client surfaces that make this feel like a real operator product rather than an endpoint bundle.
+
+### Batch A — Asset Surfaces
+Priority: highest
+
+Targets:
+- favorites / favorite folders
+- collections / channel series where practical
+- watch-later
+
+Why first:
+- these are real account assets
+- high operator value
+- mature, stable API surface
+- more product leverage than adding yet another hot-list endpoint
+
+### Batch B — History / Interaction Memory
+Priority: low / deferred
+
+Targets:
+- watch history
+- recent interaction traces where API support is clean
+- recently-viewed / recently-engaged summaries where normalization is useful
+
+Note:
+- explicitly deprioritized by Mozi
+- not part of the current mainline delivery target
+- only revisit if a concrete workflow later proves it necessary
+
+### Batch C — Content Object Clients
+Priority: high
+
+Targets:
+- dynamic client
+- opus client
+- note client
+- article client
+
+Why:
+- resolver already exists, but object-level clients are still incomplete
+- these should become first-class readable / operable / normalized modules
+
+### Batch D — Feed / Discovery Client
+Priority: medium-high
+
+Targets:
+- homepage / feed
+- hot / rank / topic normalization
+- discovery summaries and operator-facing digests
+
+Why:
+- stronger product surface than isolated trending calls
+- better discovery layer for downstream workflows
+
+### Explicit Non-Priority
+Not the current focus:
+- more auth delivery-layer work for webchat
+- expanding hot-list coverage just to add more endpoints
+
+If someone asks for auth help later:
+- prefer social-platform contact when image delivery matters
+- otherwise recommend direct cookie/env setup
+
+Current mainline focus:
+- first-tier work only: asset surfaces + content-object clients + discovery layer
+- second-tier/history-style work is explicitly non-essential for now
+
+Adjacent realism enhancement (allowed, non-blocking):
+- `emoji.py` integration as a lightweight native-expression layer for DM/comment/reply workflows
+- use sparingly to feel like a real Bilibili user, not like an emoji spam bot
+
 ## Architecture Rule
 
 ### Inside the skill
@@ -309,6 +386,12 @@ Keep:
 4. Add normalized entity resolver
 5. Expand dynamic / opus / note coverage
 6. Add operator-level composite actions
+7. Add asset surfaces: favorites / collections / watch-later
+8. Promote dynamic / opus / note / article into fuller object clients
+9. Add unified feed / discovery client
+
+Deferred unless later justified:
+- history / interaction-memory surfaces
 
 ---
 
