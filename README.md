@@ -33,6 +33,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs
 - **Content-object surface**: treat dynamics, opus, notes, and articles as first-class objects instead of URL crumbs, including unified image extraction (`images`, `primary_image`) for better reply context
+- **Unified discovery surface**: homepage feed, hot videos, rank, and topic workflows behind one client instead of scattered modules
 - **Productized outputs**: high-level workflows expose stable schema tags like `bilibili.client_workflows.<action>.v1`
 
 In short: it now feels like a real operator-facing skill, not a random endpoint wrapper.
@@ -62,6 +63,8 @@ python main.py asset_client list_watch_later
 python main.py emoji_client suggest_emojis '{"business": "reply", "query": "doge", "limit": 5}'
 python main.py content_client list_user_dynamics '{"uid": 434156493}'
 python main.py content_client list_user_articles '{"uid": 434156493}'
+python main.py discovery_client discovery_snapshot
+python main.py discovery_client get_hot '{"page_size": 5}'
 ```
 
 ## 📖 简介

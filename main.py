@@ -32,6 +32,7 @@ from src.auth_client import BilibiliAuthClient
 from src.asset_client import BilibiliAssetClient
 from src.emoji_client import BilibiliEmojiClient
 from src.content_client import BilibiliContentClient
+from src.discovery_client import BilibiliDiscoveryClient
 
 
 class BilibiliAllInOne:
@@ -85,6 +86,7 @@ class BilibiliAllInOne:
         self.asset_client = BilibiliAssetClient(auth=self.auth)
         self.emoji_client = BilibiliEmojiClient(auth=self.auth)
         self.content_client = BilibiliContentClient(auth=self.auth)
+        self.discovery_client = BilibiliDiscoveryClient(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -181,6 +183,10 @@ class BilibiliAllInOne:
             "bilibili_content_client": lambda: self.content_client,
             "content_client": lambda: self.content_client,
             "content": lambda: self.content_client,
+
+            "bilibili_discovery_client": lambda: self.discovery_client,
+            "discovery_client": lambda: self.discovery_client,
+            "discovery": lambda: self.discovery_client,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -218,6 +224,7 @@ async def main():
         print("  asset_client     - Favorites, watch-later, and channel-series collections")
         print("  emoji_client     - Bilibili native emoji packs and suggestion helpers")
         print("  content_client   - Dynamics, opus, notes, and articles as first-class objects")
+        print("  discovery_client - Unified homepage / hot / rank / topic discovery surface")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -249,6 +256,8 @@ async def main():
         print("  python main.py emoji_client suggest_emojis '{\"business\": \"reply\", \"query\": \"doge\"}'")
         print("  python main.py content_client list_user_dynamics '{\"uid\": 434156493}'")
         print("  python main.py content_client get_article_detail '{\"cvid\": 123456}'")
+        print("  python main.py discovery_client discovery_snapshot")
+        print("  python main.py discovery_client get_hot '{\"page_size\": 5}'")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

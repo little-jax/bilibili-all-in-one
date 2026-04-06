@@ -107,6 +107,7 @@
     "src/auth.py",
     "src/auth_client.py",
     "src/content_client.py",
+    "src/discovery_client.py",
     "src/downloader.py",
     "src/emoji_client.py",
     "src/hot_monitor.py",
@@ -1047,6 +1048,66 @@
             "type": "integer"
           },
           "page_size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_discovery_client",
+      "description": "Unified homepage / hot / rank / topic discovery client for Bilibili operator workflows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_home_feed",
+              "get_hot",
+              "get_history_popular",
+              "get_rank",
+              "get_hot_topics",
+              "get_topic_detail",
+              "get_topic_cards",
+              "discovery_snapshot"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "rank_type": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "topic_id": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "string"
+          },
+          "sort_by": {
+            "type": "string"
+          },
+          "home_limit": {
+            "type": "integer"
+          },
+          "hot_limit": {
+            "type": "integer"
+          },
+          "rank_limit": {
+            "type": "integer"
+          },
+          "topic_limit": {
             "type": "integer"
           }
         },

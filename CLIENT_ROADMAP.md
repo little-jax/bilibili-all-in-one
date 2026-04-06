@@ -341,6 +341,11 @@ Targets:
 - hot / rank / topic normalization
 - discovery summaries and operator-facing digests
 
+Status:
+- started landing as `discovery_client.py`
+- current first-pass actions: `get_home_feed`, `get_hot`, `get_history_popular`, `get_rank`, `get_hot_topics`, `get_topic_detail`, `get_topic_cards`, `discovery_snapshot`
+- upstream `get_hot_topics` is flaky/null-prone, so topic-hot flows should remain soft-fail tolerant
+
 Why:
 - stronger product surface than isolated trending calls
 - better discovery layer for downstream workflows
