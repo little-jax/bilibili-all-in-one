@@ -144,6 +144,31 @@ class BilibiliAuthClient:
                 "primary": "Open the PNG and scan it with the Bilibili app.",
                 "fallback": "If images are not visible in the current session, open the local HTML file or use the raw qr_url.",
             },
+            "agent_delivery": {
+                "preferred": {
+                    "kind": "image",
+                    "path": assets["image_path"],
+                    "reason": "Best operator UX. Use this first whenever the current channel supports image attachments.",
+                },
+                "fallbacks": [
+                    {
+                        "kind": "html",
+                        "path": assets["html_path"],
+                        "reason": "Use when the current session cannot display image attachments but can open local/browser content.",
+                    },
+                    {
+                        "kind": "url",
+                        "value": url,
+                        "reason": "Raw QR login URL fallback.",
+                    },
+                    {
+                        "kind": "ascii",
+                        "value": assets["ascii_qr"],
+                        "reason": "Weak fallback only; avoid as the default agent UX.",
+                    },
+                ],
+                "policy": "Prefer direct image delivery. Do not default to ASCII unless the user explicitly cannot use image/html presentation.",
+            },
             "session_file": str(QR_SESSION_FILE),
         }
 

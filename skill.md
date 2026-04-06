@@ -46,7 +46,7 @@ QR login is the preferred path. Default behavior is to generate a QR image and s
 
 High-value auth actions:
 
-- `auth_client start_qr_login` → generate QR assets (`image_path`, `html_path`, `qr_url`)
+- `auth_client start_qr_login` → generate QR assets (`image_path`, `html_path`, `qr_url`) plus `agent_delivery` hints
 - `auth_client poll_qr_login` → poll state and finalize login
 - `auth_client verify_auth` → verify current session
 - `auth_client describe_auth` → inspect auth/session/runtime paths
@@ -56,7 +56,8 @@ Recommended presentation order:
 
 1. **Send/show QR PNG directly**
 2. If images are not visible in the current session, open/use the generated local HTML file
-3. Only treat ASCII as a weak fallback, not the default operator experience
+3. Use raw `qr_url` if HTML presentation is also unavailable
+4. Only treat ASCII as a weak fallback, not the default operator experience
 
 ## Features
 | Module | Description |
