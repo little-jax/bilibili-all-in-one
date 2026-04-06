@@ -103,6 +103,7 @@
     "skill.json",
     "skill.md",
     "src/__init__.py",
+    "src/asset_client.py",
     "src/auth.py",
     "src/auth_client.py",
     "src/downloader.py",
@@ -805,6 +806,121 @@
           "clear_runtime": {
             "type": "boolean",
             "description": "Delete QR runtime files when clearing auth."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_asset_client",
+      "description": "Favorites, watch-later, and channel-series collection workflows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "list_video_favorite_lists",
+              "get_video_favorite_list_content",
+              "create_video_favorite_list",
+              "modify_video_favorite_list",
+              "delete_video_favorite_list",
+              "set_video_favorite",
+              "list_watch_later",
+              "add_to_watch_later",
+              "remove_from_watch_later",
+              "list_channel_series",
+              "get_channel_series_videos",
+              "create_channel_series",
+              "add_videos_to_channel_series",
+              "remove_videos_from_channel_series",
+              "delete_channel_series"
+            ]
+          },
+          "uid": {
+            "type": "integer"
+          },
+          "media_id": {
+            "type": "integer"
+          },
+          "media_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "series_id": {
+            "type": "integer"
+          },
+          "aids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "bvid": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "introduction": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "add_media_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "del_media_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "order": {
+            "type": "string"
+          },
+          "tid": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "channel_type": {
+            "type": "string"
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

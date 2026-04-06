@@ -29,6 +29,7 @@ from src.entity_resolver import BilibiliEntityResolver
 from src.client_workflows import BilibiliClientWorkflows
 from src.creative_center_client import BilibiliCreativeCenterClient
 from src.auth_client import BilibiliAuthClient
+from src.asset_client import BilibiliAssetClient
 
 
 class BilibiliAllInOne:
@@ -79,6 +80,7 @@ class BilibiliAllInOne:
         self.client_workflows = BilibiliClientWorkflows(auth=self.auth)
         self.creative_center = BilibiliCreativeCenterClient(auth=self.auth)
         self.auth_client = BilibiliAuthClient(auth=self.auth)
+        self.asset_client = BilibiliAssetClient(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -163,6 +165,10 @@ class BilibiliAllInOne:
             "bilibili_auth_client": lambda: self.auth_client,
             "auth_client": lambda: self.auth_client,
             "auth": lambda: self.auth_client,
+
+            "bilibili_asset_client": lambda: self.asset_client,
+            "asset_client": lambda: self.asset_client,
+            "assets": lambda: self.asset_client,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -197,6 +203,7 @@ async def main():
         print("  client_workflows - High-level lookup / investigate / reply-prep / operator workflows")
         print("  creative_center  - Creator analytics / KPI / dashboard snapshots")
         print("  auth_client      - QR-first login, session inspection, and auth cleanup")
+        print("  asset_client     - Favorites, watch-later, and channel-series collections")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -223,6 +230,8 @@ async def main():
         print("  python main.py auth_client start_qr_login")
         print("  python main.py auth_client poll_qr_login '{\"persist\": true}'")
         print("  python main.py auth_client verify_auth")
+        print("  python main.py asset_client list_watch_later")
+        print("  python main.py asset_client list_video_favorite_lists '{\"uid\": 434156493}'")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

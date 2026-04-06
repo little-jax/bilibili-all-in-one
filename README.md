@@ -30,6 +30,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Reply preparation**: build thread-aware `reply_guidance` and `candidate_reply_input` that downstream agents can actually use
 - **Operator triage**: classify inbound intent, estimate urgency, suggest tone, and flag review-required cases
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
+- **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Productized outputs**: high-level workflows expose stable schema tags like `bilibili.client_workflows.<action>.v1`
 
 In short: it now feels like a real operator-facing skill, not a random endpoint wrapper.
@@ -51,6 +52,11 @@ python main.py client_workflows operator_triage '{"source": "reply", "limit": 5}
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'
 python main.py client_workflows creator_task_queue '{"period": "week", "max_items": 5}'
 python main.py client_workflows content_opportunity_brief '{"period": "week", "max_items": 5}'
+
+# Work with account assets
+python main.py asset_client list_video_favorite_lists '{"uid": 434156493}'
+python main.py asset_client get_video_favorite_list_content '{"media_id": 123456}'
+python main.py asset_client list_watch_later
 ```
 
 ## 📖 简介
@@ -69,6 +75,7 @@ python main.py client_workflows content_opportunity_brief '{"period": "week", "m
 | 📝 **字幕提取** | 字幕下载、格式转换（SRT/ASS/VTT/TXT）、多语言、字幕合并 | ❌ |
 | ▶️ **视频播放** | 播放地址获取、弹幕抓取、分P/播放列表信息 | ⚠️ 高清需要 |
 | 📤 **视频发布** | 上传投稿、定时发布、草稿管理、编辑视频 | ✅ 必须 |
+| 🗂️ **资产面** | 收藏夹、稍后再看、合集/系列管理 | ⚠️ 需要账号 |
 | 🔐 **认证工作流** | QR 登录、登录状态检查、会话清理、持久化控制 | ⚠️ 推荐 QR |
 
 ## 🚀 快速开始
