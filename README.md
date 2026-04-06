@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-%3E%3D3.8-blue?logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/license-MIT-green" />
+  <img src="https://img.shields.io/badge/license-MIT--0-green" />
   <img src="https://img.shields.io/badge/version-1.0.18-orange" />
   <img src="https://img.shields.io/badge/platform-Bilibili-pink" />
 </p>
@@ -18,6 +18,40 @@
 > - Published fork / reference repo: **https://github.com/little-jax/bilibili-all-in-one**
 > - Original upstream author: **wscats**
 > - Upstream source is preserved for attribution; this workspace copy is now independently maintained and extended.
+
+## 🚀 Why this fork is powerful
+
+This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork now behaves like a compact creator-ops platform:
+
+- **Creator operations**: followers, comments, moderation, dynamics, space notice, and authenticated account workflows
+- **Inbox / DM surface**: replies, mentions, likes, sessions, DM history, inbox digests, priority filtering, and automation snapshots
+- **Search + entity resolution**: resolve BV / UID / opus / dynamic / note / article targets into normalized objects
+- **Creator intelligence**: investigate a user with profile, recent content, creator metrics, audience-fit hints, and a compact briefing
+- **Reply preparation**: build thread-aware `reply_guidance` and `candidate_reply_input` that downstream agents can actually use
+- **Operator triage**: classify inbound intent, estimate urgency, suggest tone, and flag review-required cases
+- **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
+- **Productized outputs**: high-level workflows expose stable schema tags like `bilibili.client_workflows.<action>.v1`
+
+In short: it now feels like a real operator-facing skill, not a random endpoint wrapper.
+
+## Quick Power Showcase
+
+```bash
+# Investigate a creator with profile + recent content + creator metrics
+python main.py client_workflows investigate_user '{"uid": 434156493, "include_creator_metrics": true, "period": "week"}'
+
+# Build reply-ready context from the latest reply thread
+python main.py client_workflows prepare_reply_context '{"source": "reply", "limit": 3}'
+
+# Classify inbound intent and produce operator triage
+python main.py client_workflows classify_inbound_intent '{"text": "想合作推广一下这个项目", "target": "https://www.bilibili.com/video/BV1KQPyzcEhH"}'
+python main.py client_workflows operator_triage '{"source": "reply", "limit": 5}'
+
+# Build dashboard / queue / opportunity views
+python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'
+python main.py client_workflows creator_task_queue '{"period": "week", "max_items": 5}'
+python main.py client_workflows content_opportunity_brief '{"period": "week", "max_items": 5}'
+```
 
 ## 📖 简介
 
@@ -46,8 +80,8 @@
 ### 安装依赖
 
 ```bash
-# Upstream source (original project)
-git clone https://github.com/wscats/bilibili-all-in-one.git
+# Maintained fork / reference repo
+git clone https://github.com/little-jax/bilibili-all-in-one.git
 cd bilibili-all-in-one
 pip install -r requirements.txt
 ```
