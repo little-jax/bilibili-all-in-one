@@ -40,38 +40,23 @@ optional_env_vars:
   - BILIBILI_PERSIST
 install: pip install -r requirements.txt
 ---
+## Authentication
 
-# Bilibili All-in-One Skill
+QR login is the preferred path. Default behavior is to generate a QR image and send/show that image directly. Only fall back to HTML / local page / raw URL / other presentation methods when the current session cannot display images or the user explicitly asks for another path.
 
-A comprehensive Bilibili toolkit that integrates hot trending monitoring, video downloading, video watching/playback, subtitle downloading, and video publishing capabilities into a single unified skill.
+High-value auth actions:
 
-> **⚠️ Optional Environment Variables:** `BILIBILI_SESSDATA`, `BILIBILI_BILI_JCT` (optional), `BILIBILI_BUVID3` (optional), `BILIBILI_PERSIST` (optional)
-> These are sensitive Bilibili session cookies needed **only** for publishing and high-quality (1080p+/4K) downloads.
-> **Most features work WITHOUT any credentials:** hot monitoring, standard-quality downloads, subtitle listing, danmaku, stats viewing.
->
-> **📦 Install:** `pip install -r requirements.txt` (all standard PyPI packages: httpx, aiohttp, beautifulsoup4, lxml, requests)
->
-> **🔗 Source:** [github.com/wscats/bilibili-all-in-one](https://github.com/wscats/bilibili-all-in-one)
+- `auth_client start_qr_login` → generate QR assets (`image_path`, `html_path`, `qr_url`)
+- `auth_client poll_qr_login` → poll state and finalize login
+- `auth_client verify_auth` → verify current session
+- `auth_client describe_auth` → inspect auth/session/runtime paths
+- `auth_client clear_auth` → clear persisted/runtime auth state
 
----
-### 何时激活
+Recommended presentation order:
 
-当用户**明确请求**以下 Bilibili 相关操作时，本 Skill 可被激活：
-
-| 触发场景 | 匹配的模块 | 典型触发词 |
-|---|---|---|
-| 查看B站热门、热搜、排行榜、必看榜 | 🔥 Hot Monitor | "热门"、"热搜"、"排行"、"趋势"、"必看"、"流行"、"榜单" |
-| 下载B站视频、提取音频、批量下载 | ⬇️ Downloader | "下载"、"保存视频"、"提取音频"、"导出MP4"、"批量下载" |
-| 查看视频播放量、点赞数、数据追踪、对比 | 👀 Watcher | "播放量"、"点赞"、"数据"、"统计"、"对比"、"监控"、"追踪"、"观看量" |
-| 下载字幕、转换字幕格式、合并字幕 | 📝 Subtitle | "字幕"、"CC"、"SRT"、"ASS"、"字幕下载"、"字幕转换"、"翻译" |
-| 播放视频、获取弹幕、播放列表 | ▶️ Player | "播放"、"弹幕"、"播放地址"、"分P"、"播放列表"、"danmaku" |
-| 上传视频、发布、定时发布、草稿、编辑 | 📤 Publisher | "上传"、"发布"、"投稿"、"定时发布"、"草稿"、"编辑视频" |
-| 粉丝运营、评论管理、回复评论、点赞视频、发动态、删动态、空间公告 | 💼 Operations | "运营"、"粉丝"、"评论"、"回复评论"、"点赞"、"发动态"、"删动态"、"关注"、"移除粉丝"、"公告" |
-| 私信/评论/@我/赞我/系统通知收件箱 | 📬 Message Center | "消息中心"、"私信"、"评论通知"、"@我"、"赞我"、"未读"、"通知"、"收件箱" |
-
-> ⚠️ **注意**：本 Skill 不会仅因消息中出现 Bilibili 链接或 BV 号就自动激活。只有当用户明确表达了操作意图（如"下载这个视频"、"查看热门"等）时才会被调用。涉及写操作（发布/编辑）时，需要用户显式提供凭证。
-
----
+1. **Send/show QR PNG directly**
+2. If images are not visible in the current session, open/use the generated local HTML file
+3. Only treat ASCII as a weak fallback, not the default operator experience
 
 ## Features
 | Module | Description |
@@ -301,7 +286,7 @@ python main.py message_center send_text '{"receiver_id": 123456, "text": "你好
 
 # Config-driven automation rules live outside code
 # Default config file: ~/.openclaw/workspace/bilibili-message-center.json (actual workspace root file)
-# Template reference: skills/bilibili-all-in-one/config/message-center.example.json
+# Template/reference only: skills/bilibili-all-in-one/config/message-center.example.json
 # Optional override: export BILIBILI_MESSAGE_CENTER_CONFIG=/path/to/override.json
 
 # System notifications

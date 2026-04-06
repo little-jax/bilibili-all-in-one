@@ -1,6 +1,6 @@
 {
   "name": "bilibili-all-in-one",
-  "description": "A comprehensive Bilibili toolkit that integrates hot trending monitoring, video downloading, video watching/playback, subtitle downloading, and video publishing capabilities into a single skill.",
+  "description": "A comprehensive Bilibili toolkit that integrates hot trending monitoring, video downloading, video watching/playback, subtitle downloading, and video publishing capabilities into a single skill, plus QR-first login/session workflows.",
   "version": "1.0.18",
   "author": "Little Jax / Mozi A.",
   "license": "MIT-0",
@@ -15,7 +15,8 @@
     "BILIBILI_SESSDATA",
     "BILIBILI_BILI_JCT",
     "BILIBILI_BUVID3",
-    "BILIBILI_PERSIST"
+    "BILIBILI_PERSIST",
+    "BILIBILI_MESSAGE_CENTER_CONFIG"
   ],
   "install": {
     "type": "pip",
@@ -25,7 +26,8 @@
       "aiohttp>=3.8.0",
       "beautifulsoup4>=4.12.0",
       "lxml>=4.9.0",
-      "requests>=2.31.0"
+      "requests>=2.31.0",
+      "qrcode[pil]>=7.4.2"
     ],
     "source": "pypi"
   },
@@ -55,6 +57,13 @@
       "name": "BILIBILI_PERSIST",
       "type": "string",
       "description": "Set to '1', 'true', or 'yes' to enable automatic credential persistence. When enabled, credentials are saved to .credentials.json (0600 permissions) and auto-loaded on next startup. Default: disabled (in-memory only).",
+      "required": false,
+      "sensitive": false
+    },
+    {
+      "name": "BILIBILI_MESSAGE_CENTER_CONFIG",
+      "type": "string",
+      "description": "Optional path override for the message-center config. Default active config is ~/.openclaw/workspace/bilibili-message-center.json and the skill-local config/message-center.example.json is only a template.",
       "required": false,
       "sensitive": false
     }
@@ -95,6 +104,7 @@
     "skill.md",
     "src/__init__.py",
     "src/auth.py",
+    "src/auth_client.py",
     "src/downloader.py",
     "src/hot_monitor.py",
     "src/player.py",
@@ -755,6 +765,46 @@
               "original",
               "reprint"
             ]
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_auth_client",
+      "description": "QR-first Bilibili login, auth/session inspection, and auth cleanup workflows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "start_qr_login",
+              "poll_qr_login",
+              "verify_auth",
+              "describe_auth",
+              "clear_auth"
+            ]
+          },
+          "qrcode_key": {
+            "type": "string",
+            "description": "QR session key returned by start_qr_login."
+          },
+          "persist": {
+            "type": "boolean",
+            "description": "Persist credentials to disk on successful QR login."
+          },
+          "clear_persisted": {
+            "type": "boolean",
+            "description": "Delete persisted credential file when clearing auth."
+          },
+          "clear_runtime": {
+            "type": "boolean",
+            "description": "Delete QR runtime files when clearing auth."
           }
         },
         "required": [

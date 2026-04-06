@@ -165,6 +165,11 @@ class BilibiliAuth:
         return {"success": False, "message": data.get("message", "Unknown error")}
 
     @property
+    def credential_path(self) -> str:
+        """Resolved credential storage path."""
+        return self._credential_path
+
+    @property
     def persist(self) -> bool:
         """Whether credential persistence is enabled."""
         return self._persist

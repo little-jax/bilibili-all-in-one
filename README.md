@@ -69,6 +69,7 @@ python main.py client_workflows content_opportunity_brief '{"period": "week", "m
 | 📝 **字幕提取** | 字幕下载、格式转换（SRT/ASS/VTT/TXT）、多语言、字幕合并 | ❌ |
 | ▶️ **视频播放** | 播放地址获取、弹幕抓取、分P/播放列表信息 | ⚠️ 高清需要 |
 | 📤 **视频发布** | 上传投稿、定时发布、草稿管理、编辑视频 | ✅ 必须 |
+| 🔐 **认证工作流** | QR 登录、登录状态检查、会话清理、持久化控制 | ⚠️ 推荐 QR |
 
 ## 🚀 快速开始
 
@@ -103,6 +104,24 @@ async def main():
 
 asyncio.run(main())
 ```
+
+## 🔐 Auth Productization
+
+QR login is the preferred path. Default behavior is to generate a QR image and send/show that image directly. Only fall back to HTML / local page / raw URL / other presentation methods when the current session cannot display images or the user explicitly asks for another path.
+
+High-value auth actions:
+
+- `auth_client start_qr_login` → generate QR assets (`image_path`, `html_path`, `qr_url`)
+- `auth_client poll_qr_login` → poll state and finalize login
+- `auth_client verify_auth` → verify current session
+- `auth_client describe_auth` → inspect auth/session/runtime paths
+- `auth_client clear_auth` → clear persisted/runtime auth state
+
+Recommended presentation order:
+
+1. **Send/show QR PNG directly**
+2. If images are not visible in the current session, open/use the generated local HTML file
+3. Only treat ASCII as a weak fallback, not the default operator experience
 
 ## ⚙️ 配置认证
 

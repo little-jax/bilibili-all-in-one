@@ -28,6 +28,7 @@ from src.user_intel import BilibiliUserIntel
 from src.entity_resolver import BilibiliEntityResolver
 from src.client_workflows import BilibiliClientWorkflows
 from src.creative_center_client import BilibiliCreativeCenterClient
+from src.auth_client import BilibiliAuthClient
 
 
 class BilibiliAllInOne:
@@ -77,6 +78,7 @@ class BilibiliAllInOne:
         self.entity_resolver = BilibiliEntityResolver(auth=self.auth)
         self.client_workflows = BilibiliClientWorkflows(auth=self.auth)
         self.creative_center = BilibiliCreativeCenterClient(auth=self.auth)
+        self.auth_client = BilibiliAuthClient(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -157,6 +159,10 @@ class BilibiliAllInOne:
             "creative_center": lambda: self.creative_center,
             "creative_center_client": lambda: self.creative_center,
             "creator_analytics": lambda: self.creative_center,
+
+            "bilibili_auth_client": lambda: self.auth_client,
+            "auth_client": lambda: self.auth_client,
+            "auth": lambda: self.auth_client,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -190,6 +196,7 @@ async def main():
         print("  entity_resolver  - Resolve URLs / BV / UID / dynamic / opus / note entities")
         print("  client_workflows - High-level lookup / investigate / reply-prep / operator workflows")
         print("  creative_center  - Creator analytics / KPI / dashboard snapshots")
+        print("  auth_client      - QR-first login, session inspection, and auth cleanup")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -213,6 +220,9 @@ async def main():
         print("  python main.py client_workflows recommend_reply_targets '{\"max_items\": 5}'")
         print("  python main.py client_workflows content_opportunity_brief '{\"period\": \"week\", \"max_items\": 5}'")
         print("  python main.py creative_center dashboard_snapshot '{\"period\": \"week\"}'")
+        print("  python main.py auth_client start_qr_login")
+        print("  python main.py auth_client poll_qr_login '{\"persist\": true}'")
+        print("  python main.py auth_client verify_auth")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}
