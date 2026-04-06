@@ -411,6 +411,7 @@
               "unblock_user",
               "like_video",
               "list_video_comments",
+              "send_resource_comment",
               "send_video_comment",
               "reply_video_comment",
               "comment_action",
@@ -672,7 +673,10 @@
               "recommend_reply_targets",
               "content_opportunity_brief",
               "classify_inbound_intent",
-              "operator_triage"
+              "operator_triage",
+              "operator_decision_loop",
+              "draft_reply_candidate",
+              "send_or_queue_reply"
             ]
           },
           "target": {
@@ -720,6 +724,15 @@
           },
           "text": {
             "type": "string"
+          },
+          "draft_text": {
+            "type": "string"
+          },
+          "execute_send": {
+            "type": "boolean"
+          },
+          "force_public_send": {
+            "type": "boolean"
           }
         },
         "required": [

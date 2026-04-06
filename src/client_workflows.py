@@ -12,6 +12,9 @@ from .search_client import BilibiliSearchClient
 from .user_intel import BilibiliUserIntel
 from .message_center import BilibiliMessageCenter
 from .creative_center_client import BilibiliCreativeCenterClient
+from .content_client import BilibiliContentClient
+from .discovery_client import BilibiliDiscoveryClient
+from .operations import BilibiliOperations
 
 
 class BilibiliClientWorkflows:
@@ -57,11 +60,18 @@ class BilibiliClientWorkflows:
                 or item.get("text")
             ),
             "url": target.get("uri") or target.get("url") or target.get("native_uri"),
+            "native_uri": target.get("native_uri"),
             "title": target.get("title") or target.get("detail_title") or target.get("desc"),
             "source_content": BilibiliClientWorkflows._snip(target.get("source_content") or ""),
             "target_reply_content": BilibiliClientWorkflows._snip(target.get("target_reply_content") or ""),
             "root_reply_content": BilibiliClientWorkflows._snip(target.get("root_reply_content") or ""),
             "business": target.get("business"),
+            "business_id": target.get("business_id"),
+            "type": target.get("type"),
+            "subject_id": target.get("subject_id"),
+            "root_id": target.get("root_id"),
+            "source_id": target.get("source_id"),
+            "target_id": target.get("target_id"),
             "raw": item,
         }
 
@@ -199,6 +209,261 @@ class BilibiliClientWorkflows:
             "payload": payload,
         }
 
+    async def _enrich_entity_context(self, entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not entity:
+            return {"success": False, "message": "No entity available."}
+
+        entity_type = entity.get("type")
+        try:
+            if entity_type == "dynamic" and entity.get("dynamic_id"):
+                return await self.content_client.get_dynamic_detail(dynamic_id=int(entity["dynamic_id"]))
+            if entity_type == "opus" and entity.get("opus_id"):
+                return await self.content_client.get_opus_detail(opus_id=int(entity["opus_id"]))
+            if entity_type == "note" and entity.get("note_id"):
+                return await self.content_client.get_note_detail(note_id=int(entity["note_id"]))
+            if entity_type == "article" and entity.get("cvid"):
+                return await self.content_client.get_article_detail(cvid=int(entity["cvid"]))
+        except Exception as exc:
+            return {"success": False, "message": f"Failed to enrich entity context: {exc}"}
+
+        return {"success": False, "message": f"No content-client enrichment path for entity type: {entity_type}"}
+
+    def _choose_operator_decision(self, *, interest_profile: Dict[str, Any], context: Dict[str, Any], entity_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        focus = (((context or {}).get("interaction_context") or {}).get("focus") or {})
+        external_text = (context or {}).get("external_text")
+        has_focus_text = bool(self._pick_first_nonempty(focus.get("text"), focus.get("source_content"), focus.get("target_reply_content"), external_text))
+        review_required = bool((interest_profile or {}).get("review_required"))
+        interest = (interest_profile or {}).get("interest") or "general"
+        urgency = (interest_profile or {}).get("urgency") or "normal"
+        entity_type = (((context or {}).get("entity") or {}).get("type"))
+        entity_ready = bool(entity_context and entity_context.get("success"))
+
+        if interest == "troll_or_low_value":
+            action = "deprioritize"
+            should_reply = False
+            reason = "Low-value or adversarial inbound signal."
+            confidence = 0.9
+        elif review_required:
+            action = "review_before_reply"
+            should_reply = True
+            reason = "Commercial/licensing-style inbound needs operator review before sending anything."
+            confidence = 0.88
+        elif has_focus_text and entity_type in {"dynamic", "opus", "note", "article", "video"}:
+            action = "reply_now"
+            should_reply = True
+            reason = "Thread context is concrete enough to draft a direct reply."
+            confidence = 0.84 if entity_ready else 0.74
+        elif has_focus_text:
+            action = "reply_with_clarification"
+            should_reply = True
+            reason = "Inbound is real, but object context is still thin; ask one clarifying question."
+            confidence = 0.72
+        else:
+            action = "wait_for_more_context"
+            should_reply = False
+            reason = "Not enough thread detail to make a clean operator decision."
+            confidence = 0.62
+
+        return {
+            "action": action,
+            "should_reply": should_reply,
+            "review_required": review_required,
+            "confidence": confidence,
+            "reason": reason,
+            "urgency": urgency,
+            "risk": "high" if review_required else ("medium" if should_reply else "low"),
+        }
+
+    def _build_reply_operator_brief(self, *, context: Dict[str, Any], interest_profile: Dict[str, Any], decision: Dict[str, Any], entity_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        guidance = (context or {}).get("reply_guidance") or {}
+        candidate = (context or {}).get("candidate_reply_input") or {}
+        entity = (context or {}).get("entity") or {}
+        enriched_item = (entity_context or {}).get("item") if isinstance(entity_context, dict) else None
+        object_summary = self._snip(
+            ((enriched_item or {}).get("summary"))
+            or ((enriched_item or {}).get("text"))
+            or (entity.get("summary"))
+            or (entity.get("text"))
+            or (entity.get("title"))
+        )
+        checklist = []
+        if decision.get("review_required"):
+            checklist.extend(["confirm business intent", "confirm scope/usage", "avoid instant commitment"])
+        elif decision.get("should_reply"):
+            checklist.extend(["answer the core point", "stay brief", "keep parent-thread awareness"])
+        else:
+            checklist.append("do not spend operator attention unless signal changes")
+
+        return {
+            "who": candidate.get("who_to_reply"),
+            "why": decision.get("reason"),
+            "object": {
+                "type": entity.get("type"),
+                "title": entity.get("title") or (enriched_item or {}).get("title"),
+                "url": entity.get("url") or (enriched_item or {}).get("url"),
+                "summary": object_summary,
+            },
+            "style": candidate.get("suggested_style") or {
+                "tone": interest_profile.get("tone"),
+                "strategy": guidance.get("thread_strategy"),
+                "next_step": guidance.get("suggested_next_step"),
+            },
+            "checklist": checklist,
+            "draft_frame": {
+                "opening": "直接回应对方核心点。",
+                "body": "如果能直接答就直接答；不够信息就只问一个澄清问题。",
+                "close": "必要时给下一步，不装，不绕。",
+            },
+        }
+
+    def _compose_reply_text(self, *, context: Dict[str, Any], decision: Dict[str, Any], interest_profile: Dict[str, Any], operator_brief: Dict[str, Any]) -> str:
+        candidate = (context or {}).get("candidate_reply_input") or {}
+        what_they_said = self._snip(candidate.get("what_they_said") or (context or {}).get("external_text") or "")
+        context_summary = self._snip(((context or {}).get("reply_guidance") or {}).get("context_summary") or "")
+        who = operator_brief.get("who") or "你"
+        interest = (interest_profile or {}).get("interest") or "general"
+        action = (decision or {}).get("action") or "wait_for_more_context"
+
+        object_info = (operator_brief or {}).get("object") or {}
+        object_title = object_info.get("title") or object_info.get("type") or "这个内容"
+
+        if action == "review_before_reply":
+            if interest == "licensing":
+                return f"{who}，收到。你先把转载/授权用途、投放范围和是否商用说清，我再按这个给你明确回复。"
+            return f"{who}，收到。先把合作形式、目标、预算和时间点发我，我看完直接给你明确答复。"
+        if action == "reply_with_clarification":
+            return f"{who}，我看到了。你这边最想解决的具体点是哪一个？方便的话直接带上链接、截图或者目标内容，我好一次说准。"
+        if interest == "fan_praise":
+            return f"{who}，谢了，真收到。{object_title} 这块我后面还会继续往上打磨。"
+        if interest == "support":
+            return f"{who}，我先直接帮你看。你说的是“{what_they_said or context_summary or object_title}”，要是方便就再补一个链接、截图或者复现步骤，我给你更准的处理法。"
+        if interest == "cooperation":
+            return f"{who}，可以。你把合作形式、预期目标、预算和时间点发我，我按这个直接往下对。"
+        if interest == "licensing":
+            return f"{who}，可以先聊。你把用途、范围、是否商用，还有想用到 {object_title} 的哪一部分说清，我再给你明确口径。"
+        if action == "reply_now":
+            base = what_they_said or context_summary or object_title
+            return f"{who}，收到。关于“{base}”，我这边先给直接结论：优先按最省事也最稳的方案来；你要更细，我可以继续往下拆。"
+        if action == "wait_for_more_context" and (context or {}).get("external_text"):
+            return f"{who}，收到。你把具体对象或链接补一下，我直接按那个给你答。"
+        return ""
+
+    def _build_send_plan(self, *, context: Dict[str, Any], draft_text: str, force_public_send: bool = False) -> Dict[str, Any]:
+        interaction = (context or {}).get("interaction_context") or {}
+        source_kind = interaction.get("kind") or (((context or {}).get("reply_targets") or {}).get("source_kind") or "unknown")
+        entity = (context or {}).get("entity") or {}
+        focus = (interaction.get("focus") or {})
+
+        if source_kind == "dm" and interaction.get("receiver_id"):
+            return {
+                "mode": "direct_send",
+                "channel": "dm",
+                "receiver_id": interaction.get("receiver_id"),
+                "text": draft_text,
+                "supported": True,
+            }
+
+        public_target = self._resolve_public_reply_target(context=context)
+        if force_public_send and public_target.get("supported"):
+            return {
+                "mode": "public_comment_send",
+                "channel": source_kind,
+                "text": draft_text,
+                "supported": True,
+                **public_target,
+            }
+
+        queue_reason = public_target.get("reason") if public_target else "Public reply auto-send is intentionally conservative until thread target mapping is proven reliable."
+        return {
+            "mode": "queue_only",
+            "channel": source_kind,
+            "supported": False,
+            "reason": queue_reason,
+            "text": draft_text,
+            "public_target": public_target,
+            "entity_type": entity.get("type"),
+            "focus_id": focus.get("id"),
+        }
+
+    @staticmethod
+    def _extract_first_match(pattern: str, value: Any) -> Optional[str]:
+        text = "" if value is None else str(value)
+        match = re.search(pattern, text)
+        return match.group(1) if match else None
+
+    def _resolve_public_reply_target(self, *, context: Dict[str, Any]) -> Dict[str, Any]:
+        interaction = (context or {}).get("interaction_context") or {}
+        focus = (interaction.get("focus") or {})
+        entity = (context or {}).get("entity") or {}
+        source_kind = interaction.get("kind") or (((context or {}).get("reply_targets") or {}).get("source_kind") or "unknown")
+        if source_kind not in {"reply", "mention", "at"}:
+            return {"supported": False, "reason": f"Unsupported public source kind: {source_kind}"}
+
+        source_id = focus.get("source_id")
+        root_id = focus.get("root_id")
+        target_id = focus.get("target_id")
+        native_uri = focus.get("native_uri") or ""
+        url = focus.get("url") or ""
+        business_id = focus.get("business_id")
+        focus_type = (focus.get("type") or "").lower()
+        entity_type = (entity.get("type") or "").lower()
+
+        root = int(root_id) if root_id not in (None, 0, "0", "") else int(source_id) if source_id not in (None, 0, "0", "") else None
+        parent = int(source_id) if source_id not in (None, 0, "0", "") else None
+
+        bvid = self._extract_first_match(r"(BV[0-9A-Za-z]+)", url)
+        if entity_type == "video" and bvid and root:
+            return {
+                "supported": True,
+                "resource_type": "video",
+                "resource_id": bvid,
+                "resource_id_type": "bvid",
+                "root": root,
+                "parent": parent or root,
+                "reason": "Resolved video comment thread from reply metadata.",
+            }
+
+        opus_id = self._extract_first_match(r"/opus/(\d+)", url) or self._extract_first_match(r"opus/detail/(\d+)", native_uri)
+        if opus_id and root:
+            resource_type = "dynamic_draw" if str(business_id) == "11" or focus_type == "album" else "dynamic"
+            return {
+                "supported": True,
+                "resource_type": resource_type,
+                "resource_id": int(opus_id),
+                "resource_id_type": "oid",
+                "root": root,
+                "parent": parent or root,
+                "reason": "Resolved opus/dynamic thread from reply metadata.",
+            }
+
+        article_id = self._extract_first_match(r"/read/cv(\d+)", url) or self._extract_first_match(r"read/(\d+)", native_uri)
+        if article_id and root:
+            return {
+                "supported": True,
+                "resource_type": "article",
+                "resource_id": int(article_id),
+                "resource_id_type": "oid",
+                "root": root,
+                "parent": parent or root,
+                "reason": "Resolved article comment thread from reply metadata.",
+            }
+
+        if target_id not in (None, 0, "0", "") and root is not None:
+            return {
+                "supported": False,
+                "reason": "Nested public reply target still lacks a proven parent/root mapping for this object type.",
+                "root": root,
+                "parent": parent,
+                "target_id": int(target_id),
+            }
+
+        return {
+            "supported": False,
+            "reason": f"Could not derive a public comment target from entity={entity_type or 'unknown'} focus_type={focus_type or 'unknown'}.",
+            "root": root,
+            "parent": parent,
+        }
+
     def _classify_interest(self, text: str = "", entity: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         lowered = (text or "").lower()
         entity_type = (entity or {}).get("type")
@@ -258,6 +523,9 @@ class BilibiliClientWorkflows:
         self.entity_resolver = BilibiliEntityResolver(auth=self.auth)
         self.message_center = BilibiliMessageCenter(auth=self.auth)
         self.creative_center = BilibiliCreativeCenterClient(auth=self.auth)
+        self.content_client = BilibiliContentClient(auth=self.auth)
+        self.discovery_client = BilibiliDiscoveryClient(auth=self.auth)
+        self.operations = BilibiliOperations(auth=self.auth)
 
     async def content_object_lookup(self, target: str) -> Dict[str, Any]:
         resolved = await self.entity_resolver.resolve(target=target)
@@ -380,38 +648,51 @@ class BilibiliClientWorkflows:
         interaction_user_uid = None
         normalized_source = (source or "dm").strip().lower()
 
+        interaction_status = None
         if normalized_source == "dm" and receiver_id is not None:
-            history = await self.message_center.dm_history(talker_id=int(receiver_id))
-            if history.get("success"):
-                items = self._pick_list(history.get("result") or history)
-                interaction_context = {
-                    "kind": "dm",
-                    "receiver_id": int(receiver_id),
-                    "history": items[:limit],
-                }
-                interaction_user_uid = int(receiver_id)
+            try:
+                history = await self.message_center.dm_history(talker_id=int(receiver_id))
+                if history.get("success"):
+                    items = self._pick_list(history.get("result") or history)
+                    interaction_context = {
+                        "kind": "dm",
+                        "receiver_id": int(receiver_id),
+                        "history": items[:limit],
+                    }
+                    interaction_user_uid = int(receiver_id)
+                interaction_status = {"success": history.get("success", False), "message": history.get("message")}
+            except Exception as exc:
+                interaction_status = {"success": False, "message": f"DM history lookup failed: {exc}"}
 
         elif normalized_source == "reply":
-            replies = await self.message_center.replies()
-            if replies.get("success"):
-                items = [self._normalize_interaction_item(x) for x in self._pick_list(replies.get("result") or replies)]
-                interaction_context = {
-                    "kind": "reply",
-                    "items": items[:limit],
-                    "focus": items[0] if items else None,
-                }
-                interaction_user_uid = (((interaction_context.get("focus") or {}).get("user") or {}).get("uid"))
+            try:
+                replies = await self.message_center.replies()
+                if replies.get("success"):
+                    items = [self._normalize_interaction_item(x) for x in self._pick_list(replies.get("result") or replies)]
+                    interaction_context = {
+                        "kind": "reply",
+                        "items": items[:limit],
+                        "focus": items[0] if items else None,
+                    }
+                    interaction_user_uid = (((interaction_context.get("focus") or {}).get("user") or {}).get("uid"))
+                interaction_status = {"success": replies.get("success", False), "message": replies.get("message")}
+            except Exception as exc:
+                interaction_status = {"success": False, "message": f"Reply lookup failed: {exc}"}
 
         elif normalized_source in {"at", "mention"}:
-            mentions = await self.message_center.at_me()
-            if mentions.get("success"):
-                items = [self._normalize_interaction_item(x) for x in self._pick_list(mentions.get("result") or mentions)]
-                interaction_context = {
-                    "kind": "mention",
-                    "items": items[:limit],
-                    "focus": items[0] if items else None,
-                }
-                interaction_user_uid = (((interaction_context.get("focus") or {}).get("user") or {}).get("uid"))
+            try:
+                mentions = await self.message_center.at_me()
+                if mentions.get("success"):
+                    items = [self._normalize_interaction_item(x) for x in self._pick_list(mentions.get("result") or mentions)]
+                    interaction_context = {
+                        "kind": "mention",
+                        "items": items[:limit],
+                        "focus": items[0] if items else None,
+                    }
+                    interaction_user_uid = (((interaction_context.get("focus") or {}).get("user") or {}).get("uid"))
+                interaction_status = {"success": mentions.get("success", False), "message": mentions.get("message")}
+            except Exception as exc:
+                interaction_status = {"success": False, "message": f"Mention lookup failed: {exc}"}
 
         focus_entity = await self._resolve_focus_entity((interaction_context or {}).get("focus"))
         if focus_entity and not entity:
@@ -516,6 +797,7 @@ class BilibiliClientWorkflows:
             "interest_profile": interest_profile,
             "status": {
                 "intel": intel_status,
+                "interaction": interaction_status,
                 "entity_resolved": bool(entity),
             },
             "reply_brief": {
@@ -690,6 +972,13 @@ class BilibiliClientWorkflows:
         if not creative.get("success"):
             return creative
 
+        discovery = await self.discovery_client.discovery_snapshot(
+            home_limit=max_items,
+            hot_limit=max_items,
+            rank_limit=max_items,
+            topic_limit=max_items,
+        )
+
         modules = creative.get("modules") or {}
         candidates = []
         for bucket_name in ("video_survey", "video_playanalysis"):
@@ -706,21 +995,64 @@ class BilibiliClientWorkflows:
                     "raw": item,
                 })
 
-        opportunities = []
-        for item in candidates[:max_items]:
-            opportunities.append({
+        for item in (discovery.get("hot") or [])[:max_items]:
+            candidates.append({
+                "source": "discovery.hot",
                 "title": item.get("title"),
-                "source": item.get("source"),
-                "signal": item.get("score"),
-                "suggested_action": "amplify-or-review",
-                "reason": f"creative-center {item.get('source')} surfaced this content",
+                "score": ((item.get("stats") or {}).get("views")),
+                "raw": item,
             })
+        for item in (discovery.get("rank") or [])[:max_items]:
+            candidates.append({
+                "source": "discovery.rank",
+                "title": item.get("title"),
+                "score": ((item.get("stats") or {}).get("views")),
+                "raw": item,
+            })
+        for item in (discovery.get("topics") or [])[:max_items]:
+            candidates.append({
+                "source": "discovery.topic",
+                "title": item.get("name") or item.get("title"),
+                "score": item.get("topic_id"),
+                "raw": item,
+            })
+
+        seen = set()
+        opportunities = []
+        for item in candidates:
+            title = item.get("title")
+            if title in (None, ""):
+                continue
+            key = (item.get("source"), title)
+            if key in seen:
+                continue
+            seen.add(key)
+            source = item.get("source") or "unknown"
+            if source.startswith("discovery.topic"):
+                suggested_action = "evaluate-topic-fit"
+                reason = "discovery layer surfaced a topic worth checking against current creator direction"
+            elif source.startswith("discovery"):
+                suggested_action = "check-trend-fit"
+                reason = f"{source} surfaced an active discovery signal"
+            else:
+                suggested_action = "amplify-or-review"
+                reason = f"creative-center {source} surfaced this content"
+            opportunities.append({
+                "title": title,
+                "source": source,
+                "signal": item.get("score"),
+                "suggested_action": suggested_action,
+                "reason": reason,
+            })
+            if len(opportunities) >= max_items:
+                break
 
         return {
             "success": True,
             "schema": "bilibili.client_workflows.content_opportunity_brief.v1",
             "period": period,
             "opportunities": opportunities,
+            "discovery_status": discovery.get("topic_status") if discovery.get("success") else {"success": False, "message": discovery.get("message")},
             "summary": {
                 "count": len(opportunities),
                 "sources": sorted({x.get("source") for x in opportunities if x.get("source")}),
@@ -784,6 +1116,204 @@ class BilibiliClientWorkflows:
             },
         }
 
+    async def operator_decision_loop(
+        self,
+        text: str = "",
+        target: Optional[str] = None,
+        source: str = "reply",
+        receiver_id: Optional[int] = None,
+        limit: int = 10,
+    ) -> Dict[str, Any]:
+        context = await self.prepare_reply_context(target=target, source=source, receiver_id=receiver_id, limit=limit)
+        if not context.get("success"):
+            return context
+
+        enriched_context = dict(context)
+        enriched_context["external_text"] = text
+        focus = ((context.get("interaction_context") or {}).get("focus") or {})
+        focus_text = self._pick_first_nonempty(focus.get("text"), focus.get("source_content"), focus.get("target_reply_content"))
+        interest_profile = self._classify_interest(
+            text=(focus_text or text or ""),
+            entity=context.get("entity"),
+        )
+        entity_context = await self._enrich_entity_context(context.get("entity")) if context.get("entity") else {"success": False, "message": "No entity"}
+        decision = self._choose_operator_decision(
+            interest_profile=interest_profile,
+            context=enriched_context,
+            entity_context=entity_context,
+        )
+        operator_brief = self._build_reply_operator_brief(
+            context=enriched_context,
+            interest_profile=interest_profile,
+            decision=decision,
+            entity_context=entity_context,
+        )
+
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.operator_decision_loop.v1",
+            "decision": decision,
+            "interest_profile": interest_profile,
+            "operator_brief": operator_brief,
+            "entity_context": entity_context,
+            "reply_guidance": enriched_context.get("reply_guidance"),
+            "candidate_reply_input": enriched_context.get("candidate_reply_input"),
+            "context": {
+                "entity": enriched_context.get("entity"),
+                "interaction_context": enriched_context.get("interaction_context"),
+                "reply_guidance": enriched_context.get("reply_guidance"),
+                "candidate_reply_input": enriched_context.get("candidate_reply_input"),
+                "reply_targets": enriched_context.get("reply_targets"),
+                "reply_brief": enriched_context.get("reply_brief"),
+                "thread_context": enriched_context.get("thread_context"),
+                "status": enriched_context.get("status"),
+                "external_text": enriched_context.get("external_text"),
+            },
+            "text": "\n".join([
+                f"decision: {decision.get('action')}",
+                f"reason: {decision.get('reason')}",
+                f"reply_to: {operator_brief.get('who')}",
+                f"object: {((operator_brief.get('object') or {}).get('title')) or ((operator_brief.get('object') or {}).get('type')) or 'unknown'}",
+            ]),
+        }
+
+    async def draft_reply_candidate(
+        self,
+        text: str = "",
+        target: Optional[str] = None,
+        source: str = "reply",
+        receiver_id: Optional[int] = None,
+        limit: int = 10,
+    ) -> Dict[str, Any]:
+        loop = await self.operator_decision_loop(text=text, target=target, source=source, receiver_id=receiver_id, limit=limit)
+        if not loop.get("success"):
+            return loop
+
+        draft_text = self._compose_reply_text(
+            context=loop.get("context") or {},
+            decision=loop.get("decision") or {},
+            interest_profile=loop.get("interest_profile") or {},
+            operator_brief=loop.get("operator_brief") or {},
+        )
+        send_plan = self._build_send_plan(context=loop.get("context") or {}, draft_text=draft_text)
+
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.draft_reply_candidate.v1",
+            "decision": loop.get("decision"),
+            "interest_profile": loop.get("interest_profile"),
+            "operator_brief": loop.get("operator_brief"),
+            "draft": {
+                "text": draft_text,
+                "ready": bool(draft_text),
+                "tone": ((loop.get("operator_brief") or {}).get("style") or {}).get("tone"),
+            },
+            "send_plan": send_plan,
+            "context": loop.get("context"),
+        }
+
+    async def send_or_queue_reply(
+        self,
+        text: str = "",
+        target: Optional[str] = None,
+        source: str = "reply",
+        receiver_id: Optional[int] = None,
+        limit: int = 10,
+        draft_text: Optional[str] = None,
+        execute_send: bool = False,
+        force_public_send: bool = False,
+    ) -> Dict[str, Any]:
+        draft = await self.draft_reply_candidate(text=text, target=target, source=source, receiver_id=receiver_id, limit=limit)
+        if not draft.get("success"):
+            return draft
+
+        final_text = (draft_text or ((draft.get("draft") or {}).get("text")) or "").strip()
+        send_plan = self._build_send_plan(
+            context=draft.get("context") or {},
+            draft_text=final_text,
+            force_public_send=bool(force_public_send),
+        )
+
+        queued_task = self._build_task(
+            task_type="reply_queue",
+            title=f"回复 {(((draft.get('operator_brief') or {}).get('who')) or 'unknown')}",
+            priority=88 if ((draft.get("decision") or {}).get("should_reply")) else 60,
+            reason=((draft.get("decision") or {}).get("reason") or "reply draft prepared"),
+            source="client_workflows.send_or_queue_reply",
+            payload={
+                "draft_text": final_text,
+                "send_plan": send_plan,
+                "context": draft.get("context"),
+            },
+        )
+
+        if not execute_send:
+            return {
+                "success": True,
+                "schema": "bilibili.client_workflows.send_or_queue_reply.v1",
+                "mode": "queued",
+                "sent": False,
+                "queue_item": queued_task,
+                "send_plan": send_plan,
+                "draft": {"text": final_text, "ready": bool(final_text)},
+            }
+
+        if not final_text:
+            return {
+                "success": False,
+                "message": "No draft text available to send.",
+                "send_plan": send_plan,
+                "queue_item": queued_task,
+            }
+
+        if send_plan.get("mode") == "direct_send" and send_plan.get("receiver_id"):
+            result = await self.message_center.send_text(receiver_id=int(send_plan["receiver_id"]), text=final_text)
+            return {
+                "success": bool(result.get("success")),
+                "schema": "bilibili.client_workflows.send_or_queue_reply.v1",
+                "mode": "sent",
+                "sent": bool(result.get("success")),
+                "result": result,
+                "send_plan": send_plan,
+                "draft": {"text": final_text, "ready": True},
+            }
+
+        if send_plan.get("mode") == "public_comment_send":
+            if send_plan.get("resource_type") == "video" and send_plan.get("resource_id_type") == "bvid":
+                result = await self.operations.send_video_comment(
+                    text=final_text,
+                    bvid=send_plan.get("resource_id"),
+                    root=send_plan.get("root"),
+                    parent=send_plan.get("parent"),
+                )
+            else:
+                result = await self.operations.send_resource_comment(
+                    text=final_text,
+                    oid=int(send_plan.get("resource_id")),
+                    resource_type=send_plan.get("resource_type"),
+                    root=send_plan.get("root"),
+                    parent=send_plan.get("parent"),
+                )
+            return {
+                "success": bool(result.get("success")),
+                "schema": "bilibili.client_workflows.send_or_queue_reply.v1",
+                "mode": "sent",
+                "sent": bool(result.get("success")),
+                "result": result,
+                "send_plan": send_plan,
+                "draft": {"text": final_text, "ready": True},
+            }
+
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.send_or_queue_reply.v1",
+            "mode": "queued",
+            "sent": False,
+            "queue_item": queued_task,
+            "send_plan": send_plan,
+            "draft": {"text": final_text, "ready": bool(final_text)},
+        }
+
     async def execute(self, action: str, **kwargs) -> Dict[str, Any]:
         actions = {
             "content_object_lookup": self.content_object_lookup,
@@ -797,6 +1327,9 @@ class BilibiliClientWorkflows:
             "operator_task_queue": self.creator_task_queue,
             "recommend_reply_targets": self.recommend_reply_targets,
             "content_opportunity_brief": self.content_opportunity_brief,
+            "operator_decision_loop": self.operator_decision_loop,
+            "draft_reply_candidate": self.draft_reply_candidate,
+            "send_or_queue_reply": self.send_or_queue_reply,
         }
         handler = actions.get(action)
         if not handler:

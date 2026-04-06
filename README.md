@@ -29,6 +29,8 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Creator intelligence**: investigate a user with profile, recent content, creator metrics, audience-fit hints, and a compact briefing
 - **Reply preparation**: build thread-aware `reply_guidance` and `candidate_reply_input` that downstream agents can actually use
 - **Operator triage**: classify inbound intent, estimate urgency, suggest tone, and flag review-required cases
+- **Reply execution loop**: `operator_decision_loop` → `draft_reply_candidate` → `send_or_queue_reply`
+- **Safe public auto-send**: DMs can send directly; public reply auto-send only fires when thread mapping is proven from reply metadata
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs
@@ -50,6 +52,9 @@ python main.py client_workflows prepare_reply_context '{"source": "reply", "limi
 # Classify inbound intent and produce operator triage
 python main.py client_workflows classify_inbound_intent '{"text": "想合作推广一下这个项目", "target": "https://www.bilibili.com/video/BV1KQPyzcEhH"}'
 python main.py client_workflows operator_triage '{"source": "reply", "limit": 5}'
+python main.py client_workflows operator_decision_loop '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
+python main.py client_workflows draft_reply_candidate '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
+python main.py client_workflows send_or_queue_reply '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "execute_send": false, "force_public_send": true}'
 
 # Build dashboard / queue / opportunity views
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'

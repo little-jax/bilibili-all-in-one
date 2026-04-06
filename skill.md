@@ -413,6 +413,9 @@ python main.py client_workflows prepare_reply_context '{"source": "dm", "receive
 # Inbound classification / triage
 python main.py client_workflows classify_inbound_intent '{"text": "想合作推广一下这个项目", "target": "https://www.bilibili.com/video/BV1KQPyzcEhH"}'
 python main.py client_workflows operator_triage '{"source": "reply", "limit": 5}'
+python main.py client_workflows operator_decision_loop '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
+python main.py client_workflows draft_reply_candidate '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
+python main.py client_workflows send_or_queue_reply '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "execute_send": false, "force_public_send": true}'
 
 # Unified operator / creator dashboard snapshot
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'
@@ -430,6 +433,9 @@ python main.py client_workflows content_opportunity_brief '{"period": "week", "m
 - `investigate_user` returns `creator_profile`, `creator_metrics`, `audience_fit`, and `brief`
 - `classify_inbound_intent` returns `classification.interest`, `urgency`, `tone`, `review_required`, and `canned_refs`
 - `operator_triage` returns `triage`, `reply_guidance`, `candidate_reply_input`, and compact context payloads
+- `operator_decision_loop` returns a concrete decision, enriched object context, and operator brief
+- `draft_reply_candidate` returns a reply draft plus a send-plan preview
+- `send_or_queue_reply` sends DMs directly, public replies only when thread mapping is proven, and otherwise returns a structured queue item
 - `creator_dashboard_snapshot` merges `message_center` + `creative_center`
 - `creator_task_queue` produces structured work items with `type`, `priority`, `risk`, `reason`, and `payload`
 - Workflow actions increasingly include a `schema` field like `bilibili.client_workflows.<action>.v1` for downstream consumers

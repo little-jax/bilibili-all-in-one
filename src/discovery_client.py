@@ -184,14 +184,40 @@ class BilibiliDiscoveryClient(BilibiliClientBase):
         try:
             data = await bili_topic.get_hot_topics(numbers=int(limit))
             items = self._pick_items(data)
+            normalized = [self._normalize_topic_card(x) for x in items]
+            if normalized:
+                return self._success(
+                    schema="bilibili.discovery_client.get_hot_topics.v1",
+                    count=len(normalized),
+                    items=normalized,
+                    topic_status={"success": True, "source": "api", "degraded": False, "message": None},
+                    raw=data,
+                )
             return self._success(
                 schema="bilibili.discovery_client.get_hot_topics.v1",
-                count=len(items),
-                items=[self._normalize_topic_card(x) for x in items],
+                count=0,
+                items=[],
+                topic_status={
+                    "success": False,
+                    "source": "api-empty",
+                    "degraded": True,
+                    "message": "Topic API returned no usable items.",
+                },
                 raw=data,
             )
         except Exception as exc:
-            return self._failure(f"Failed to get hot topics: {exc}")
+            return self._success(
+                schema="bilibili.discovery_client.get_hot_topics.v1",
+                count=0,
+                items=[],
+                topic_status={
+                    "success": False,
+                    "source": "api-error",
+                    "degraded": True,
+                    "message": f"Failed to get hot topics: {exc}",
+                },
+                raw=None,
+            )
 
     async def get_topic_detail(self, topic_id: int) -> Dict[str, Any]:
         error = self._require_discovery_library()
@@ -242,7 +268,7 @@ class BilibiliDiscoveryClient(BilibiliClientBase):
         home_items = (home.get("items") or [])[: max(int(home_limit), 0)] if home.get("success") else []
         hot_items = (hot.get("items") or [])[: max(int(hot_limit), 0)] if hot.get("success") else []
         rank_items = (rank.get("items") or [])[: max(int(rank_limit), 0)] if rank.get("success") else []
-        topic_items = (topics.get("items") or [])[: max(int(topic_limit), 0)] if topics.get("success") else []
+        topic_items = (topics.get("items") or [])[: max(int(topic_limit), 0)] if (topics.get("success") or topics.get("topic_status", {}).get("degraded")) else []
 
         lines = []
         if home_items:
@@ -257,8 +283,9 @@ class BilibiliDiscoveryClient(BilibiliClientBase):
         if topic_items:
             lines.append("热门话题：")
             lines.extend([f"- {x.get('name') or x.get('title')}" for x in topic_items[:3]])
-        if topics.get("success") is False:
-            lines.append(f"热门话题获取失败：{topics.get('message')}")
+        topic_status = topics.get("topic_status") or {"success": topics.get("success", False), "message": topics.get("message")}
+        if topic_status.get("success") is False and topic_status.get("message"):
+            lines.append(f"热门话题获取降级：{topic_status.get('message')}")
 
         return self._success(
             schema="bilibili.discovery_client.discovery_snapshot.v1",
@@ -266,7 +293,7 @@ class BilibiliDiscoveryClient(BilibiliClientBase):
             hot=hot_items,
             rank=rank_items,
             topics=topic_items,
-            topic_status={"success": topics.get("success", False), "message": topics.get("message")},
+            topic_status=topic_status,
             text="\n".join(lines),
         )
 

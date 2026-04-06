@@ -253,8 +253,12 @@ Landed in initial productized form.
 Phase-4 pieces now in place:
 - `client_workflows.classify_inbound_intent`
 - `client_workflows.operator_triage`
+- `client_workflows.operator_decision_loop`
+- `client_workflows.draft_reply_candidate`
+- `client_workflows.send_or_queue_reply`
 - structured `interest_profile` inside `prepare_reply_context`
 - schema-tagged workflow outputs for downstream consumers
+- direct-send for DMs plus conservative public reply auto-send only when thread mapping is proven
 
 ### Goal
 Support context-sensitive creator operations.
@@ -284,7 +288,7 @@ These should remain **configurable heuristics**, not hardcoded truth claims.
 ## Phase 6 — Asset / Discovery Sync
 
 ### Status
-Queued.
+Substantially landed for the first-tier target.
 
 ### Goal
 Synchronize the next high-value Bilibili client surfaces that make this feel like a real operator product rather than an endpoint bundle.
@@ -326,8 +330,9 @@ Targets:
 - article client
 
 Status:
-- started landing as `content_client.py`
-- initial readable/object actions now include user-dynamics listing, dynamic detail/action, opus detail, note detail, user-article listing, and article detail
+- landed as `content_client.py`
+- readable/object actions include user-dynamics listing, dynamic detail/action, opus detail, note detail, user-article listing, and article detail
+- workflow enrichment now consumes these object clients inside the reply decision loop
 
 Why:
 - resolver already exists, but object-level clients are still incomplete
@@ -342,9 +347,10 @@ Targets:
 - discovery summaries and operator-facing digests
 
 Status:
-- started landing as `discovery_client.py`
-- current first-pass actions: `get_home_feed`, `get_hot`, `get_history_popular`, `get_rank`, `get_hot_topics`, `get_topic_detail`, `get_topic_cards`, `discovery_snapshot`
-- upstream `get_hot_topics` is flaky/null-prone, so topic-hot flows should remain soft-fail tolerant
+- landed as `discovery_client.py`
+- current actions: `get_home_feed`, `get_hot`, `get_history_popular`, `get_rank`, `get_hot_topics`, `get_topic_detail`, `get_topic_cards`, `discovery_snapshot`
+- upstream `get_hot_topics` is flaky/null-prone, and the client now soft-fails instead of taking down the whole discovery brief
+- discovery signals are now consumed by `client_workflows.content_opportunity_brief`
 
 Why:
 - stronger product surface than isolated trending calls

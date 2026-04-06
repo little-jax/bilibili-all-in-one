@@ -16,7 +16,7 @@ operations instead of reimplementing fragile endpoints by hand.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from .auth import BilibiliAuth
 from .client_base import BilibiliClientBase, bili_comment, bili_dynamic, bili_user
@@ -298,6 +298,40 @@ class BilibiliOperations(BilibiliClientBase):
             "items": data,
         }
 
+    async def send_resource_comment(
+        self,
+        text: str,
+        oid: int,
+        resource_type: str,
+        root: Optional[int] = None,
+        parent: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        lib_error = self._require_library()
+        if lib_error:
+            return lib_error
+        auth_error = self._require_auth()
+        if auth_error:
+            return auth_error
+
+        type_enum = self._comment_type_from_string(resource_type)
+        data = await bili_comment.send_comment(
+            text=text,
+            oid=int(oid),
+            type_=type_enum,
+            root=root,
+            parent=parent,
+            credential=self._credential(),
+        )
+        return {
+            "success": True,
+            "oid": int(oid),
+            "resource_type": resource_type,
+            "text": text,
+            "root": root,
+            "parent": parent,
+            "result": data,
+        }
+
     async def send_video_comment(
         self,
         text: str,
@@ -315,23 +349,20 @@ class BilibiliOperations(BilibiliClientBase):
 
         v = self._video(url=url, bvid=bvid, require_auth=True)
         aid = v.get_aid()
-        data = await bili_comment.send_comment(
+        data = await self.send_resource_comment(
             text=text,
             oid=aid,
-            type_=bili_comment.CommentResourceType.VIDEO,
+            resource_type="video",
             root=root,
             parent=parent,
-            credential=self._credential(),
         )
-        return {
-            "success": True,
+        if not data.get("success"):
+            return data
+        data.update({
             "bvid": v.get_bvid(),
             "aid": aid,
-            "text": text,
-            "root": root,
-            "parent": parent,
-            "result": data,
-        }
+        })
+        return data
 
     async def comment_action(
         self,
@@ -462,6 +493,7 @@ class BilibiliOperations(BilibiliClientBase):
             "unblock_user": lambda **kw: self.operate_user_relation(action="unblock", **kw),
             "like_video": self.like_video,
             "list_video_comments": self.list_video_comments,
+            "send_resource_comment": self.send_resource_comment,
             "send_video_comment": self.send_video_comment,
             "reply_video_comment": self.send_video_comment,
             "comment_action": self.comment_action,
