@@ -83,6 +83,69 @@ class BilibiliOperations(BilibiliClientBase):
             raise ValueError(f"Unsupported relation action: {action}")
         return mapping[normalized]
 
+    @staticmethod
+    def _extract_comment_text(item: Dict[str, Any]) -> str:
+        content = item.get("content") or {}
+        if isinstance(content, dict):
+            message = content.get("message") or content.get("text")
+            if isinstance(message, str):
+                return message
+        for key in ("content", "message", "text"):
+            value = item.get(key)
+            if isinstance(value, str):
+                return value
+        return ""
+
+    @staticmethod
+    def _extract_comment_images(item: Dict[str, Any]) -> List[str]:
+        urls: List[str] = []
+        content = item.get("content") or {}
+        pictures = content.get("pictures") if isinstance(content, dict) else None
+        if isinstance(pictures, list):
+            for pic in pictures:
+                if isinstance(pic, dict):
+                    for key in ("img_src", "url", "src"):
+                        value = pic.get(key)
+                        if isinstance(value, str) and value.startswith("http"):
+                            urls.append(value)
+        seen = set()
+        deduped = []
+        for url in urls:
+            if url not in seen:
+                seen.add(url)
+                deduped.append(url)
+        return deduped
+
+    def _normalize_comment_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        member = item.get("member") or {}
+        reply_control = item.get("reply_control") or {}
+        images = self._extract_comment_images(item)
+        labels = []
+        for card in item.get("card_label") or []:
+            if isinstance(card, dict):
+                text = card.get("text") or card.get("label")
+                if text:
+                    labels.append(text)
+        return {
+            "rpid": item.get("rpid"),
+            "mid": item.get("mid") or member.get("mid"),
+            "user": {
+                "mid": member.get("mid"),
+                "name": member.get("uname"),
+                "avatar": member.get("avatar"),
+            },
+            "text": self._extract_comment_text(item),
+            "ctime": item.get("ctime"),
+            "like": item.get("like"),
+            "rcount": item.get("rcount"),
+            "is_up_top": bool(reply_control.get("is_up_top")),
+            "labels": labels,
+            "images": images,
+            "primary_image": images[0] if images else None,
+            "media_count": len(images),
+            "raw": item,
+        }
+
     async def verify_auth(self) -> Dict[str, Any]:
         lib_error = self._require_library()
         if lib_error:
@@ -214,7 +277,26 @@ class BilibiliOperations(BilibiliClientBase):
             order=self._comment_order_from_string(order),
             credential=self._credential() if self.auth.is_authenticated else None,
         )
-        return {"success": True, "bvid": v.get_bvid(), "aid": aid, "page": page, "order": order, "items": data}
+        replies = data.get("replies") or []
+        top_replies = data.get("top_replies") or []
+        upper = data.get("upper") or {}
+        pinned_raw = data.get("top") or upper.get("top")
+        pinned_comment = self._normalize_comment_item(pinned_raw) if isinstance(pinned_raw, dict) and pinned_raw else None
+        normalized_replies = [self._normalize_comment_item(x) for x in replies if isinstance(x, dict)]
+        normalized_top_replies = [self._normalize_comment_item(x) for x in top_replies if isinstance(x, dict)]
+        up_voted_comments = [x for x in normalized_replies if x.get("is_up_top") or x.get("labels")]
+        return {
+            "success": True,
+            "bvid": v.get_bvid(),
+            "aid": aid,
+            "page": page,
+            "order": order,
+            "pinned_comment": pinned_comment,
+            "top_replies": normalized_top_replies,
+            "up_voted_comments": up_voted_comments,
+            "replies": normalized_replies,
+            "items": data,
+        }
 
     async def send_video_comment(
         self,

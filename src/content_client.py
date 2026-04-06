@@ -78,6 +78,45 @@ class BilibiliContentClient(BilibiliClientBase):
         text = " ".join(text.split())
         return text[: limit - 1] + "…" if len(text) > limit else text
 
+    def _extract_images(self, data: Any) -> List[str]:
+        urls: List[str] = []
+
+        def walk(obj: Any):
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    lowered = key.lower()
+                    if lowered in {"url", "src", "img_src", "image", "image_url", "cover", "pic"} and isinstance(value, str):
+                        if value.startswith("http") and any(x in value for x in ("hdslb.com", "bilivideo", "bilibili")):
+                            urls.append(value)
+                    elif lowered in {"pictures", "pics", "images", "draw", "covers"} and isinstance(value, list):
+                        for item in value:
+                            walk(item)
+                    elif isinstance(value, (dict, list)):
+                        walk(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    walk(item)
+            elif isinstance(obj, str):
+                if obj.startswith("http") and any(x in obj for x in ("hdslb.com", "bilivideo", "bilibili")):
+                    urls.append(obj)
+
+        walk(data)
+        seen = set()
+        deduped = []
+        for url in urls:
+            if url not in seen:
+                seen.add(url)
+                deduped.append(url)
+        return deduped
+
+    def _image_bundle(self, data: Any) -> Dict[str, Any]:
+        images = self._extract_images(data)
+        return {
+            "images": images,
+            "primary_image": images[0] if images else None,
+            "media_count": len(images),
+        }
+
     def _normalize_dynamic(self, info: Dict[str, Any], source: Optional[int] = None) -> Dict[str, Any]:
         dynamic_id = self._find_first(info, ("dynamic_id_str", "dynamic_id", "id_str", "id")) or source
         author_uid = self._find_first(info, ("uid", "mid"))
@@ -95,6 +134,7 @@ class BilibiliContentClient(BilibiliClientBase):
                 "comments": self._find_first(info, ("reply", "reply_count")),
                 "shares": self._find_first(info, ("repost", "repost_count")),
             },
+            **self._image_bundle(info),
             "raw": info,
         }
 
@@ -116,6 +156,7 @@ class BilibiliContentClient(BilibiliClientBase):
                 "comments": self._find_first(info, ("reply", "reply_count")),
                 "shares": self._find_first(info, ("repost", "repost_count")),
             },
+            **self._image_bundle(info),
             "raw": info,
         }
 
@@ -132,6 +173,7 @@ class BilibiliContentClient(BilibiliClientBase):
                 "uid": self._find_first(info, ("uid", "mid")),
                 "name": self._find_first(info, ("name", "uname", "nickname")),
             },
+            **self._image_bundle(info),
             "raw": info,
         }
 
@@ -148,6 +190,7 @@ class BilibiliContentClient(BilibiliClientBase):
                 "uid": self._find_first(info, ("mid", "uid")),
                 "name": self._find_first(info, ("name", "uname", "author_name")),
             },
+            **self._image_bundle(info),
             "raw": info,
         }
 
@@ -163,10 +206,12 @@ class BilibiliContentClient(BilibiliClientBase):
                 data = await user_obj.get_dynamics(need_top=bool(need_top))
             items = self._pick_items(data)
             normalized = [self._normalize_dynamic(x) for x in items]
+            pinned_dynamic = normalized[0] if (need_top and normalized) else None
             return self._success(
                 schema="bilibili.content_client.list_user_dynamics.v1",
                 uid=int(uid),
                 count=len(normalized),
+                pinned_dynamic=pinned_dynamic,
                 items=normalized,
                 raw=data,
             )
