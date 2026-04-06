@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "digest": {
+    "maxItems": 5,
+    "previewLength": 100
+  },
+  "priorityRules": [
+    {
+      "id": "cooperation",
+      "label": "合作",
+      "priority": 100,
+      "keywords": ["合作", "商务", "商单", "赞助", "推广", "品牌", "恰饭"]
+    },
+    {
+      "id": "authorization",
+      "label": "授权",
+      "priority": 95,
+      "keywords": ["授权", "转载", "搬运", "许可", "商用", "版权"]
+    },
+    {
+      "id": "sales-support",
+      "label": "售前/售后",
+      "priority": 90,
+      "keywords": ["价格", "多少钱", "购买", "付费", "退款", "失效", "下载不了", "不能用"]
+    },
+    {
+      "id": "rig2",
+      "label": "Rig2 / Blender",
+      "priority": 80,
+      "keywords": ["rig2", "blender", "mine-imator", "插件", "绑定", "驱动", "骨骼"]
+    },
+    {
+      "id": "tutorial",
+      "label": "教程/帮助",
+      "priority": 70,
+      "keywords": ["教程", "怎么用", "如何", "help", "帮助", "文档"]
+    }
+  ],
+  "notificationRoutes": [
+    {
+      "id": "telegram-default",
+      "enabled": false,
+      "kind": "telegram",
+      "target": ""
+    },
+    {
+      "id": "qq-default",
+      "enabled": false,
+      "kind": "qqbot",
+      "target": ""
+    },
+    {
+      "id": "speaker-default",
+      "enabled": false,
+      "kind": "speaker",
+      "voice": "pathfinder"
+    }
+  ],
+  "automation": {
+    "pollMinutes": 10,
+    "minPriorityToNotify": 80,
+    "dedupeWindowMinutes": 720
+  }
+}

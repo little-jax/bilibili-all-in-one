@@ -1,0 +1,824 @@
+{
+  "name": "bilibili-all-in-one",
+  "description": "A comprehensive Bilibili toolkit that integrates hot trending monitoring, video downloading, video watching/playback, subtitle downloading, and video publishing capabilities into a single skill.",
+  "version": "1.0.18",
+  "author": "Little Jax / Mozi A.",
+  "license": "MIT-0",
+  "homepage": "https://github.com/little-jax/bilibili-all-in-one",
+  "repository": "https://github.com/little-jax/bilibili-all-in-one",
+  "source": "https://github.com/little-jax/bilibili-all-in-one",
+  "type": "code",
+  "runtime": "python>=3.8",
+  "entry_point": "main.py",
+  "required_env_vars": [],
+  "optional_env_vars": [
+    "BILIBILI_SESSDATA",
+    "BILIBILI_BILI_JCT",
+    "BILIBILI_BUVID3",
+    "BILIBILI_PERSIST"
+  ],
+  "install": {
+    "type": "pip",
+    "command": "pip install -r requirements.txt",
+    "packages": [
+      "httpx>=0.24.0",
+      "aiohttp>=3.8.0",
+      "beautifulsoup4>=4.12.0",
+      "lxml>=4.9.0",
+      "requests>=2.31.0"
+    ],
+    "source": "pypi"
+  },
+  "env_vars": [
+    {
+      "name": "BILIBILI_SESSDATA",
+      "type": "string",
+      "description": "Bilibili SESSDATA cookie for authenticated API access. Only required for publishing and high-quality (1080p+/4K) downloads. Most features work without this.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "BILIBILI_BILI_JCT",
+      "type": "string",
+      "description": "Bilibili bili_jct cookie (CSRF token) for write operations (upload, edit). Only required for publishing. Most features work without this.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "BILIBILI_BUVID3",
+      "type": "string",
+      "description": "Bilibili buvid3 cookie for device identification in authenticated sessions.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "BILIBILI_PERSIST",
+      "type": "string",
+      "description": "Set to '1', 'true', or 'yes' to enable automatic credential persistence. When enabled, credentials are saved to .credentials.json (0600 permissions) and auto-loaded on next startup. Default: disabled (in-memory only).",
+      "required": false,
+      "sensitive": false
+    }
+  ],
+  "credentials": {
+    "primary_credential": "BILIBILI_SESSDATA",
+    "credential_type": "full_session_cookies",
+    "credential_required_for": "Only the Publisher module (upload/edit/schedule/draft) and high-quality downloads (1080p+/4K) require credentials. All other features (hot monitoring, standard downloads, subtitles, danmaku, stats) work WITHOUT any credentials.",
+    "credential_scope_warning": "These are full browser session cookies (not limited API keys). Providing them grants the skill broad access to your Bilibili account. Use a test/throwaway account.",
+    "storage": "in-memory by default. Set persist=True (or env BILIBILI_PERSIST=1) to auto-save/load credentials from .credentials.json with 0600 permissions. Persistence can also be toggled at runtime via auth.persist property.",
+    "security_notes": [
+      "Credentials are NOT persisted to disk by default. Persistence must be explicitly opted-in via persist=True or BILIBILI_PERSIST=1.",
+      "Prefer passing credentials via environment variables or in-memory parameters.",
+      "All API requests go to official Bilibili endpoints over HTTPS.",
+      "Use a test/throwaway Bilibili account for evaluation purposes.",
+      "These are full session cookies — treat them as highly sensitive. They grant broad account access, not just limited API scope."
+    ]
+  },
+  "network": {
+    "protocol": "HTTPS only",
+    "allowed_domains": [
+      "api.bilibili.com",
+      "member.bilibili.com",
+      "upos-sz-upcdnbda2.bilivideo.com",
+      "www.bilibili.com"
+    ],
+    "third_party_telemetry": false,
+    "analytics": false
+  },
+  "files": [
+    ".gitignore",
+    "LICENSE",
+    "README.md",
+    "config/message-center.example.json",
+    "main.py",
+    "requirements.txt",
+    "skill.json",
+    "skill.md",
+    "src/__init__.py",
+    "src/auth.py",
+    "src/downloader.py",
+    "src/hot_monitor.py",
+    "src/player.py",
+    "src/publisher.py",
+    "src/subtitle.py",
+    "src/utils.py",
+    "src/watcher.py"
+  ],
+  "skills": [
+    {
+      "name": "bilibili_hot_monitor",
+      "description": "Monitor Bilibili hot/trending videos and rankings.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_hot",
+              "get_trending",
+              "get_weekly",
+              "get_rank"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Ranking category."
+          },
+          "page": {
+            "type": "integer",
+            "description": "Page number."
+          },
+          "page_size": {
+            "type": "integer",
+            "description": "Page size."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of items."
+          },
+          "number": {
+            "type": "integer",
+            "description": "Weekly issue number."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_downloader",
+      "description": "Download Bilibili videos and inspect available formats.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_info",
+              "get_formats",
+              "download",
+              "batch_download"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quality": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "output_dir": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_watcher",
+      "description": "Inspect video stats and compare performance.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_stats",
+              "compare",
+              "track"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "interval": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_subtitle",
+      "description": "List, download, and convert Bilibili subtitles.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "list",
+              "download",
+              "convert",
+              "merge"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "cid": {
+            "type": "integer"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "subtitle_path": {
+            "type": "string"
+          },
+          "video_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_player",
+      "description": "Get playback info, playlists, and danmaku.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_play_url",
+              "get_danmaku",
+              "get_playlist"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "cid": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "quality": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_publisher",
+      "description": "Publish videos to Bilibili with preview, inspect, upload, draft, schedule, and edit flows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "upload",
+              "draft",
+              "schedule",
+              "edit",
+              "inspect_video",
+              "preview_upload"
+            ]
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Path to local video file."
+          },
+          "cover_path": {
+            "type": "string",
+            "description": "Optional cover image path."
+          },
+          "title": {
+            "type": "string",
+            "description": "Video title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Video description."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tag list."
+          },
+          "category": {
+            "type": "string",
+            "description": "Category tid."
+          },
+          "schedule_time": {
+            "type": "string",
+            "description": "ISO datetime for scheduled publication."
+          },
+          "dynamic": {
+            "type": "string",
+            "description": "Dynamic/feed text."
+          },
+          "bvid": {
+            "type": "string",
+            "description": "Existing video BV id."
+          },
+          "no_reprint": {
+            "type": "integer",
+            "description": "1 original, 0 repost."
+          },
+          "open_elec": {
+            "type": "integer",
+            "description": "1 enable charging, 0 disable."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_operations",
+      "description": "Creator/community operations: followers, comments, dynamics, likes, notices, moderation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "verify_auth",
+              "profile",
+              "list_my_videos",
+              "list_followers",
+              "list_followings",
+              "follow_user",
+              "unfollow_user",
+              "remove_fan",
+              "block_user",
+              "unblock_user",
+              "like_video",
+              "list_video_comments",
+              "send_video_comment",
+              "reply_video_comment",
+              "comment_action",
+              "like_comment",
+              "pin_comment",
+              "delete_comment",
+              "list_sub_comments",
+              "post_dynamic",
+              "repost_dynamic",
+              "delete_dynamic",
+              "get_dynamic_info",
+              "list_my_dynamics",
+              "set_space_notice"
+            ]
+          },
+          "uid": {
+            "type": "integer"
+          },
+          "bvid": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "dynamic_id": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "root": {
+            "type": "integer"
+          },
+          "parent": {
+            "type": "integer"
+          },
+          "oid": {
+            "type": "integer"
+          },
+          "rpid": {
+            "type": "integer"
+          },
+          "resource_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_message_center",
+      "description": "Creator inbox and DM workflows: replies, mentions, likes, sessions, history, digests, automation snapshots.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "unread",
+              "replies",
+              "at_me",
+              "likes",
+              "system_messages",
+              "session_settings",
+              "sessions",
+              "session_detail",
+              "fetch_messages",
+              "dm_history",
+              "send_text",
+              "new_sessions",
+              "inbox_summary",
+              "inbox_digest",
+              "priority_digest",
+              "automation_snapshot",
+              "show_config"
+            ]
+          },
+          "talker_id": {
+            "type": "integer"
+          },
+          "receiver_id": {
+            "type": "integer"
+          },
+          "session_type": {
+            "type": "integer"
+          },
+          "begin_seqno": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          },
+          "max_items": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_search_client",
+      "description": "Search Bilibili videos, users, live, topics, articles, games, manga, and suggestions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "search",
+              "search_by_type",
+              "search_videos",
+              "search_users",
+              "search_live",
+              "search_articles",
+              "search_topics",
+              "search_photos",
+              "suggest_keywords",
+              "search_games",
+              "search_manga"
+            ]
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "search_type": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_user_intel",
+      "description": "User profile lookup, recent content inspection, and lightweight audience investigation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "get_my_profile",
+              "resolve_name_to_uid",
+              "get_user_profile",
+              "get_user_videos",
+              "get_user_dynamics",
+              "inspect_user"
+            ]
+          },
+          "uid": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "order": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "need_top": {
+            "type": "boolean"
+          },
+          "video_limit": {
+            "type": "integer"
+          },
+          "dynamics_limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_entity_resolver",
+      "description": "Resolve URLs and ids into normalized video/user/dynamic/opus/note/article entities.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "resolve",
+              "resolve_url"
+            ]
+          },
+          "target": {
+            "type": "string",
+            "description": "URL, BV id, uid, dynamic id, opus id, or note id."
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to resolve."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_client_workflows",
+      "description": "High-level lookup, investigation, reply-prep, operator triage, dashboard, and operator-task workflows.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "content_object_lookup",
+              "investigate_user",
+              "prepare_reply_context",
+              "creator_dashboard_snapshot",
+              "operator_dashboard_snapshot",
+              "creator_task_queue",
+              "operator_task_queue",
+              "recommend_reply_targets",
+              "content_opportunity_brief",
+              "classify_inbound_intent",
+              "operator_triage"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "include_creator_metrics": {
+            "type": "boolean"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "yesterday",
+              "week",
+              "month",
+              "three_month",
+              "total"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "dm",
+              "reply",
+              "at",
+              "mention"
+            ]
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "max_items": {
+            "type": "integer"
+          },
+          "receiver_id": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_creative_center",
+      "description": "Creator analytics, KPI snapshots, fan trends, play analysis, and dashboard-oriented metrics.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "compare",
+              "overview",
+              "graph",
+              "fan_overview",
+              "fan_graph",
+              "video_survey",
+              "video_playanalysis",
+              "dashboard_snapshot"
+            ]
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "yesterday",
+              "week",
+              "month",
+              "three_month",
+              "total"
+            ]
+          },
+          "graph_type": {
+            "type": "string",
+            "description": "Graph metric type such as play, visitor, fan, like, fav, share, comment, dm, coin, elec, all_fans, follow, unfollow."
+          },
+          "copyright": {
+            "type": "string",
+            "enum": [
+              "all",
+              "original",
+              "reprint"
+            ]
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "configuration": {
+    "bilibili_sessdata": {
+      "type": "string",
+      "description": "Bilibili SESSDATA cookie. Optional — only needed for publishing and 1080p+/4K downloads. Most features work without credentials.",
+      "required": false,
+      "sensitive": true
+    },
+    "bilibili_bili_jct": {
+      "type": "string",
+      "description": "Bilibili bili_jct cookie (CSRF token). Optional — only needed for publishing (upload/edit). Most features work without credentials.",
+      "required": false,
+      "sensitive": true
+    },
+    "bilibili_buvid3": {
+      "type": "string",
+      "description": "Bilibili buvid3 cookie for device identification. Optional.",
+      "required": false,
+      "sensitive": true
+    },
+    "default_quality": {
+      "type": "string",
+      "description": "Default video quality",
+      "default": "1080p"
+    },
+    "default_output_dir": {
+      "type": "string",
+      "description": "Default output directory",
+      "default": "./output"
+    }
+  },
+  "permissions": {
+    "network": {
+      "description": "HTTP/HTTPS requests to Bilibili official APIs",
+      "allowed_domains": [
+        "api.bilibili.com",
+        "member.bilibili.com",
+        "www.bilibili.com",
+        "upos-sz-upcdnbda2.bilivideo.com"
+      ]
+    },
+    "filesystem": {
+      "description": "Read/write access for downloading videos, subtitles, and uploading files",
+      "operations": [
+        "read_local_files",
+        "write_downloads",
+        "write_subtitles"
+      ],
+      "note": "Credential files are NEVER auto-created. save_to_file() must be explicitly called by the user."
+    }
+  },
+  "always": false,
+  "activation_note": "This skill should only be activated when the user explicitly requests Bilibili-related operations. It does NOT auto-activate on keyword/link detection.",
+  "disable_model_invocation": false,
+  "maintainer": "Little Jax / Mozi A.",
+  "ownership": "Workspace-maintained fork under Mozi A. and Little Jax.",
+  "original_author": "wscats",
+  "upstream_repository": "https://github.com/wscats/bilibili-all-in-one"
+}
