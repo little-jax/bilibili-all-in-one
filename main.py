@@ -31,6 +31,7 @@ from src.creative_center_client import BilibiliCreativeCenterClient
 from src.auth_client import BilibiliAuthClient
 from src.asset_client import BilibiliAssetClient
 from src.emoji_client import BilibiliEmojiClient
+from src.content_client import BilibiliContentClient
 
 
 class BilibiliAllInOne:
@@ -83,6 +84,7 @@ class BilibiliAllInOne:
         self.auth_client = BilibiliAuthClient(auth=self.auth)
         self.asset_client = BilibiliAssetClient(auth=self.auth)
         self.emoji_client = BilibiliEmojiClient(auth=self.auth)
+        self.content_client = BilibiliContentClient(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -175,6 +177,10 @@ class BilibiliAllInOne:
             "bilibili_emoji_client": lambda: self.emoji_client,
             "emoji_client": lambda: self.emoji_client,
             "emoji": lambda: self.emoji_client,
+
+            "bilibili_content_client": lambda: self.content_client,
+            "content_client": lambda: self.content_client,
+            "content": lambda: self.content_client,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -211,6 +217,7 @@ async def main():
         print("  auth_client      - QR-first login, session inspection, and auth cleanup")
         print("  asset_client     - Favorites, watch-later, and channel-series collections")
         print("  emoji_client     - Bilibili native emoji packs and suggestion helpers")
+        print("  content_client   - Dynamics, opus, notes, and articles as first-class objects")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -240,6 +247,8 @@ async def main():
         print("  python main.py asset_client list_watch_later")
         print("  python main.py asset_client list_video_favorite_lists '{\"uid\": 434156493}'")
         print("  python main.py emoji_client suggest_emojis '{\"business\": \"reply\", \"query\": \"doge\"}'")
+        print("  python main.py content_client list_user_dynamics '{\"uid\": 434156493}'")
+        print("  python main.py content_client get_article_detail '{\"cvid\": 123456}'")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

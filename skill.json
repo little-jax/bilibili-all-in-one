@@ -106,6 +106,7 @@
     "src/asset_client.py",
     "src/auth.py",
     "src/auth_client.py",
+    "src/content_client.py",
     "src/downloader.py",
     "src/emoji_client.py",
     "src/hot_monitor.py",
@@ -966,6 +967,86 @@
             "type": "string"
           },
           "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_content_client",
+      "description": "First-class content-object workflows for dynamics, opus, notes, and articles.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "list_user_dynamics",
+              "get_dynamic_detail",
+              "dynamic_action",
+              "get_opus_detail",
+              "get_note_detail",
+              "list_user_articles",
+              "get_article_detail"
+            ]
+          },
+          "uid": {
+            "type": "integer"
+          },
+          "dynamic_id": {
+            "type": "integer"
+          },
+          "opus_id": {
+            "type": "integer"
+          },
+          "note_id": {
+            "type": "integer"
+          },
+          "cvid": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "string"
+          },
+          "need_top": {
+            "type": "boolean"
+          },
+          "operation": {
+            "type": "string",
+            "description": "Sub-action for dynamic_action: reposts|like|delete"
+          },
+          "action_name": {
+            "type": "string",
+            "description": "Alias for operation"
+          },
+          "actionType": {
+            "type": "string",
+            "description": "Alias for operation"
+          },
+          "action_type": {
+            "type": "string",
+            "description": "Alias for operation"
+          },
+          "actionKind": {
+            "type": "string",
+            "description": "Alias for operation"
+          },
+          "action_kind": {
+            "type": "string",
+            "description": "Alias for operation"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
             "type": "integer"
           }
         },

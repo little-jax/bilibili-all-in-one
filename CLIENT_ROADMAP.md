@@ -325,6 +325,10 @@ Targets:
 - note client
 - article client
 
+Status:
+- started landing as `content_client.py`
+- initial readable/object actions now include user-dynamics listing, dynamic detail/action, opus detail, note detail, user-article listing, and article detail
+
 Why:
 - resolver already exists, but object-level clients are still incomplete
 - these should become first-class readable / operable / normalized modules
