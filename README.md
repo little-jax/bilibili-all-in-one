@@ -32,6 +32,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Reply execution loop**: `operator_decision_loop` → `draft_reply_candidate` → `send_or_queue_reply`
 - **Safe public auto-send**: DMs can send directly; public reply auto-send only fires when thread mapping is proven from reply metadata
 - **Automation-facing workflows**: `automation_brief` and `automation_tick` give cron/sub-agent friendly snapshots and next-action queues
+- **Queued live-orchestration direction**: Bilibili live start/stop, RTMP retrieval validation, OBS websocket control, and QR-based pre-live verification handling are now in the development queue
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs

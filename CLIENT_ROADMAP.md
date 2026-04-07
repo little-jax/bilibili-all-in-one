@@ -374,6 +374,43 @@ Adjacent realism enhancement (allowed, non-blocking):
 - `emoji.py` integration as a lightweight native-expression layer for DM/comment/reply workflows
 - use sparingly to feel like a real Bilibili user, not like an emoji spam bot
 
+## Phase 7 — Live Orchestration / Streaming Control
+
+### Status
+Queued.
+
+### Goal
+Turn Bilibili live support into a real operator-facing orchestration layer instead of a pile of separate live/OBS helpers.
+
+### Core tracks
+- validate Bilibili live start/stop flows against real account behavior
+- confirm whether `bilibili_api.live.LiveRoom.start()` exposes RTMP address / stream code directly in returned data
+- add a dedicated `live_client` for room info, area info, announcement/news, moderation, danmaku, and high-sensitivity stream config access
+- add an orchestration layer that can prepare/start/stop a live session end-to-end with OBS websocket control
+- add live health/status checks so OpenClaw can distinguish “B站已开播 / OBS未推流 / OBS推流失败 / 状态分裂” instead of reporting fake success
+
+### OBS integration track
+- connect to OBS websocket first-class rather than shell-driving OBS blindly
+- preflight stream configuration before start
+- write RTMP server/key into OBS only after explicit confirmation
+- support `start_live_session`, `stop_live_session`, and `live_health_check`
+- detect and surface push failures, reconnect loops, and other output-state problems
+
+### Live metadata / preflight track
+- preview and edit live title / area / announcement before start
+- add metadata sanitization / validation so special tags or risky text can be caught before OBS starts pushing
+- keep write operations human-confirmed by default
+
+### Verification / QR presentation track
+- support the real-world Bilibili “scan with mobile client” verification flow that may appear before live start (including face/identity verification or app-confirmed QR flows)
+- treat this like auth QR presentation: default to social-platform delivery first; if that is unavailable, fall back to local image viewer / generated HTML / other operator-visible presentation paths
+- do not bury these QR challenges in raw logs; surface them explicitly as operator action requirements
+
+### Future live-agent track
+- live danmaku loop agent for local-model classification / triage
+- start with observation + highlighting, not autonomous replying
+- later allow guarded semi-automatic assistance if it proves useful
+
 ## Architecture Rule
 
 ### Inside the skill
