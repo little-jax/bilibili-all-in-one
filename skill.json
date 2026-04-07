@@ -1225,7 +1225,8 @@
               "get_live_room_profile",
               "room_profile",
               "update_live_announcement",
-              "set_announcement"
+              "set_announcement",
+              "pre_start_room_patch"
             ],
             "description": "Orchestration action to perform."
           },
@@ -1292,6 +1293,14 @@
           "transient_grace_seconds": {
             "type": "number",
             "description": "Grace window for transient stop/start settling in live_health_check."
+          },
+          "announcement": {
+            "type": "string",
+            "description": "Live room announcement/news content to apply before start."
+          },
+          "title": {
+            "type": "string",
+            "description": "Requested live title. Currently reported as unsupported until a confirmed write endpoint is found."
           }
         },
         "required": [

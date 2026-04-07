@@ -129,17 +129,42 @@ class BilibiliLiveOrchestrator:
         if data.get("code") != 0:
             raise RuntimeError(data.get("message", "Failed to fetch stop-live stats"))
         payload = data.get("data") or {}
-        return {
-            "live_key": self._mask_value(live_key, 8, 6),
-            "summary": {
-                "live_time": payload.get("LiveTime"),
-                "add_fans": payload.get("AddFans"),
-                "hamster_rmb": payload.get("HamsterRmb"),
-                "new_fans_club": payload.get("NewFansClub"),
-                "danmu_num": payload.get("DanmuNum"),
-                "max_online": payload.get("MaxOnline"),
-                "watched_count": payload.get("WatchedCount"),
+        live_time = payload.get("LiveTime")
+        add_fans = payload.get("AddFans")
+        hamster_rmb = payload.get("HamsterRmb")
+        new_fans_club = payload.get("NewFansClub")
+        danmu_num = payload.get("DanmuNum")
+        max_online = payload.get("MaxOnline")
+        watched_count = payload.get("WatchedCount")
+        duration_seconds = live_time if isinstance(live_time, int) and live_time >= 0 else None
+        duration_minutes = round(duration_seconds / 60, 2) if duration_seconds is not None else None
+        summary = {
+            "duration_seconds": duration_seconds,
+            "duration_minutes": duration_minutes,
+            "watched_count": watched_count,
+            "max_online": max_online,
+            "danmu_num": danmu_num,
+            "add_fans": add_fans,
+            "new_fans_club": new_fans_club,
+            "hamster_rmb": hamster_rmb,
+        }
+        derived = {
+            "engagement": {
+                "danmu_per_minute": round(danmu_num / (duration_seconds / 60), 2)
+                if duration_seconds and isinstance(danmu_num, (int, float)) else None,
+                "fan_gain_per_hour": round(add_fans / (duration_seconds / 3600), 2)
+                if duration_seconds and isinstance(add_fans, (int, float)) else None,
             },
+            "quality_flags": {
+                "invalid_duration": bool(isinstance(live_time, int) and live_time < 0),
+                "empty_session": bool(duration_seconds == 0 and not any((watched_count, danmu_num, add_fans, new_fans_club, hamster_rmb, max_online))),
+            },
+        }
+        return {
+            "schema": "bilibili.live_orchestrator.stop_live_data.v1",
+            "live_key": self._mask_value(live_key, 8, 6),
+            "summary": summary,
+            "derived": derived,
             "raw": payload,
         }
 
@@ -190,6 +215,61 @@ class BilibiliLiveOrchestrator:
             )
         except Exception as exc:
             return self._failure(f"Failed to update live announcement: {exc}")
+
+    async def pre_start_room_patch(
+        self,
+        room_id: Optional[int] = None,
+        area_id: Optional[int] = None,
+        announcement: Optional[str] = None,
+        title: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        try:
+            bundle = await self._get_live_room_bundle()
+            resolved_room_id = int(room_id or bundle["room_id"])
+            before = await self.get_live_room_profile(room_id=resolved_room_id)
+            changes = []
+            unsupported = []
+            announcement_result = None
+            if announcement is not None:
+                announcement_result = await self.update_live_announcement(content=announcement, room_id=resolved_room_id)
+                changes.append("announcement")
+            if title is not None:
+                unsupported.append({
+                    "field": "title",
+                    "reason": "Live title update endpoint is not yet confirmed from bilibili-api or bilibili_live_stream code. Refusing to guess a write endpoint.",
+                })
+            target_area = None
+            if area_id is not None:
+                current_area = await self._get_current_area(resolved_room_id)
+                target_area = {
+                    "current_area_id": (current_area or {}).get("id"),
+                    "requested_area_id": int(area_id),
+                    "will_apply_on_start": True,
+                    "reason": "Bilibili startLive accepts area_v2; no separate confirmed pre-start area-write endpoint has been wired yet.",
+                }
+                changes.append("area")
+            after = await self.get_live_room_profile(room_id=resolved_room_id)
+            return self._success(
+                schema="bilibili.live_orchestrator.pre_start_room_patch.v1",
+                room_id=resolved_room_id,
+                requested_changes={
+                    "announcement": announcement,
+                    "title": title,
+                    "area_id": area_id,
+                },
+                applied={
+                    "announcement": announcement_result,
+                    "area": target_area,
+                },
+                unsupported=unsupported,
+                before=before,
+                after=after,
+                changed_fields=changes,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to patch pre-start room state: {exc}")
 
     async def prepare_live_session(
         self,
@@ -487,6 +567,7 @@ class BilibiliLiveOrchestrator:
             "room_profile": self.get_live_room_profile,
             "update_live_announcement": self.update_live_announcement,
             "set_announcement": self.update_live_announcement,
+            "pre_start_room_patch": self.pre_start_room_patch,
             "prepare_live_session": self.prepare_live_session,
             "start_live_session": self.start_live_session,
             "stop_live_session": self.stop_live_session,
