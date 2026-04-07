@@ -112,6 +112,85 @@ class BilibiliLiveOrchestrator:
     async def _room(self, room_id: int):
         return bili_live.LiveRoom(int(room_id), credential=self._credential())
 
+    async def _get_room_info(self, room_id: int) -> Dict[str, Any]:
+        async with self.auth.get_client() as client:
+            resp = await client.get(f"https://api.live.bilibili.com/room/v1/Room/get_info?room_id={int(room_id)}")
+            data = resp.json()
+        if data.get("code") != 0:
+            raise RuntimeError(data.get("message", "Failed to fetch room info"))
+        return data.get("data") or {}
+
+    async def _get_stop_live_data(self, live_key: str) -> Dict[str, Any]:
+        async with self.auth.get_client() as client:
+            resp = await client.get(
+                f"https://api.live.bilibili.com/xlive/app-blink/v1/live/StopLiveData?live_key={live_key}"
+            )
+            data = resp.json()
+        if data.get("code") != 0:
+            raise RuntimeError(data.get("message", "Failed to fetch stop-live stats"))
+        payload = data.get("data") or {}
+        return {
+            "live_key": self._mask_value(live_key, 8, 6),
+            "summary": {
+                "live_time": payload.get("LiveTime"),
+                "add_fans": payload.get("AddFans"),
+                "hamster_rmb": payload.get("HamsterRmb"),
+                "new_fans_club": payload.get("NewFansClub"),
+                "danmu_num": payload.get("DanmuNum"),
+                "max_online": payload.get("MaxOnline"),
+                "watched_count": payload.get("WatchedCount"),
+            },
+            "raw": payload,
+        }
+
+    async def get_live_room_profile(
+        self,
+        room_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        try:
+            bundle = await self._get_live_room_bundle()
+            resolved_room_id = int(room_id or bundle["room_id"])
+            room_info = await self._get_room_info(resolved_room_id)
+            current_area = await self._get_current_area(resolved_room_id)
+            return self._success(
+                schema="bilibili.live_orchestrator.get_live_room_profile.v1",
+                room_id=resolved_room_id,
+                uid=bundle["uid"],
+                title=room_info.get("title"),
+                description=room_info.get("description"),
+                live_status=room_info.get("live_status"),
+                area=current_area,
+                room_news=(bundle.get("raw") or {}).get("room_news"),
+                room_info=room_info,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to fetch live room profile: {exc}")
+
+    async def update_live_announcement(
+        self,
+        content: str,
+        room_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        if not content:
+            return self._failure("content is required")
+        try:
+            bundle = await self._get_live_room_bundle()
+            resolved_room_id = int(room_id or bundle["room_id"])
+            room = await self._room(resolved_room_id)
+            result = await room.update_news(content)
+            return self._success(
+                schema="bilibili.live_orchestrator.update_live_announcement.v1",
+                room_id=resolved_room_id,
+                content=content,
+                result=result,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to update live announcement: {exc}")
+
     async def prepare_live_session(
         self,
         room_id: Optional[int] = None,
@@ -146,12 +225,23 @@ class BilibiliLiveOrchestrator:
                 password=obs_password,
                 timeout=obs_timeout,
             )
+            room_info = await self._get_room_info(resolved_room_id)
             return self._success(
                 schema="bilibili.live_orchestrator.prepare_live_session.v1",
                 room_id=resolved_room_id,
                 area_id=resolved_area_id or None,
                 uid=bundle["uid"],
                 current_area=current_area,
+                room_profile={
+                    "title": room_info.get("title"),
+                    "description": room_info.get("description"),
+                    "area_id": room_info.get("area_id"),
+                    "area_name": room_info.get("area_name"),
+                    "parent_area_id": room_info.get("parent_area_id"),
+                    "parent_area_name": room_info.get("parent_area_name"),
+                    "live_status": room_info.get("live_status"),
+                    "room_news": (bundle.get("raw") or {}).get("room_news"),
+                },
                 obs_connection=obs_connection,
                 obs_status=obs_status,
                 obs_stream_service=obs_stream_service,
@@ -269,6 +359,7 @@ class BilibiliLiveOrchestrator:
     async def stop_live_session(
         self,
         room_id: Optional[int] = None,
+        live_key: Optional[str] = None,
         obs_host: Optional[str] = None,
         obs_port: Optional[int] = None,
         obs_password: Optional[str] = None,
@@ -292,6 +383,12 @@ class BilibiliLiveOrchestrator:
             )
             room = await self._room(resolved_room_id)
             stop_resp = await room.stop()
+            stop_stats = None
+            if live_key:
+                try:
+                    stop_stats = await self._get_stop_live_data(live_key)
+                except Exception as exc:
+                    stop_stats = {"success": False, "message": str(exc), "live_key": self._mask_value(live_key, 8, 6)}
             restore_resp = None
             if restore_stream_service and restore_server and restore_key:
                 restore_resp = await self.obs.set_stream_service(
@@ -311,13 +408,15 @@ class BilibiliLiveOrchestrator:
                 timeout=obs_timeout,
             )
             return self._success(
-                schema="bilibili.live_orchestrator.stop_live_session.v1",
+                schema="bilibili.live_orchestrator.stop_live_session.v2",
                 room_id=resolved_room_id,
                 obs_stop=obs_stop,
                 bilibili_stop={
                     "status": stop_resp.get("status"),
                     "change": stop_resp.get("change"),
+                    "raw": stop_resp,
                 },
+                stop_stats=stop_stats,
                 obs_restore=restore_resp,
                 obs_status=obs_status,
             )
@@ -331,6 +430,7 @@ class BilibiliLiveOrchestrator:
         obs_port: Optional[int] = None,
         obs_password: Optional[str] = None,
         obs_timeout: Optional[float] = None,
+        transient_grace_seconds: float = 8.0,
     ) -> Dict[str, Any]:
         if (err := self._require_library()) or (err := self._require_auth()):
             return err
@@ -339,6 +439,7 @@ class BilibiliLiveOrchestrator:
             resolved_room_id = int(room_id or bundle["room_id"])
             room = await self._room(resolved_room_id)
             room_play = await room.get_room_play_info()
+            room_info = await self._get_room_info(resolved_room_id)
             obs_status = await self.obs.get_status(
                 host=obs_host,
                 port=obs_port,
@@ -346,28 +447,46 @@ class BilibiliLiveOrchestrator:
                 timeout=obs_timeout,
             )
             bilibili_live_status = (room_play or {}).get("live_status")
+            bilibili_live_time = (room_play or {}).get("live_time")
             obs_active = ((obs_status or {}).get("stream") or {}).get("active")
             obs_reconnecting = ((obs_status or {}).get("stream") or {}).get("reconnecting")
+            obs_duration_ms = ((obs_status or {}).get("stream") or {}).get("duration_ms") or 0
             state = "healthy"
-            if bool(bilibili_live_status) != bool(obs_active):
+            transitional = False
+            reasons = []
+            if bilibili_live_status == 0 and obs_active and obs_duration_ms <= max(0, int(transient_grace_seconds * 1000)):
+                state = "transient_stop_settling"
+                transitional = True
+                reasons.append("OBS still draining shortly after stop while Bilibili already reports offline")
+            elif bool(bilibili_live_status) != bool(obs_active):
                 state = "split_state"
+                reasons.append("Bilibili live_status and OBS output_active disagree")
             elif obs_reconnecting:
                 state = "obs_reconnecting"
+                reasons.append("OBS output is reconnecting")
             return self._success(
-                schema="bilibili.live_orchestrator.live_health_check.v1",
+                schema="bilibili.live_orchestrator.live_health_check.v2",
                 room_id=resolved_room_id,
                 bilibili={
                     "live_status": bilibili_live_status,
+                    "live_time": bilibili_live_time,
                     "room_play_info": room_play,
+                    "room_info": room_info,
                 },
                 obs_status=obs_status,
                 state=state,
+                transitional=transitional,
+                reasons=reasons,
             )
         except Exception as exc:
             return self._failure(f"Failed to run live health check: {exc}")
 
     async def execute(self, action: str, **kwargs) -> Dict[str, Any]:
         actions = {
+            "get_live_room_profile": self.get_live_room_profile,
+            "room_profile": self.get_live_room_profile,
+            "update_live_announcement": self.update_live_announcement,
+            "set_announcement": self.update_live_announcement,
             "prepare_live_session": self.prepare_live_session,
             "start_live_session": self.start_live_session,
             "stop_live_session": self.stop_live_session,

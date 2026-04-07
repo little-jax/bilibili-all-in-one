@@ -1221,7 +1221,11 @@
               "start_live_session",
               "stop_live_session",
               "live_health_check",
-              "health_check"
+              "health_check",
+              "get_live_room_profile",
+              "room_profile",
+              "update_live_announcement",
+              "set_announcement"
             ],
             "description": "Orchestration action to perform."
           },
@@ -1276,6 +1280,18 @@
           "restore_key": {
             "type": "string",
             "description": "Previous OBS stream key to restore."
+          },
+          "live_key": {
+            "type": "string",
+            "description": "Live session key returned by start_live_session; used to fetch StopLiveData after stop."
+          },
+          "content": {
+            "type": "string",
+            "description": "Announcement content for update_live_announcement."
+          },
+          "transient_grace_seconds": {
+            "type": "number",
+            "description": "Grace window for transient stop/start settling in live_health_check."
           }
         },
         "required": [
