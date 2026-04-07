@@ -374,6 +374,8 @@ class BilibiliLiveOrchestrator:
         self,
         room_id: Optional[int] = None,
         area_id: Optional[int] = None,
+        title: Optional[str] = None,
+        announcement: Optional[str] = None,
         obs_host: Optional[str] = None,
         obs_port: Optional[int] = None,
         obs_password: Optional[str] = None,
@@ -392,6 +394,42 @@ class BilibiliLiveOrchestrator:
             if not resolved_area_id:
                 return self._failure("No live area_id available. Provide area_id explicitly or choose an area in Bilibili first.")
 
+            pre_start_patch = None
+            if title is not None or announcement is not None or area_id is not None:
+                pre_start_patch = await self.pre_start_room_patch(
+                    room_id=resolved_room_id,
+                    area_id=resolved_area_id,
+                    announcement=announcement,
+                    title=title,
+                )
+                if not pre_start_patch.get("success"):
+                    return self._failure(
+                        "Pre-start room patch failed.",
+                        schema="bilibili.live_orchestrator.start_live_session.v2",
+                        room_id=resolved_room_id,
+                        area_id=resolved_area_id,
+                        pre_start_patch=pre_start_patch,
+                    )
+                applied = pre_start_patch.get("applied") or {}
+                title_result = applied.get("title")
+                announcement_result = applied.get("announcement")
+                if isinstance(title_result, dict) and not title_result.get("success", False):
+                    return self._failure(
+                        "Requested live title update failed before start.",
+                        schema="bilibili.live_orchestrator.start_live_session.v2",
+                        room_id=resolved_room_id,
+                        area_id=resolved_area_id,
+                        pre_start_patch=pre_start_patch,
+                    )
+                if isinstance(announcement_result, dict) and not announcement_result.get("success", False):
+                    return self._failure(
+                        "Requested live announcement update failed before start.",
+                        schema="bilibili.live_orchestrator.start_live_session.v2",
+                        room_id=resolved_room_id,
+                        area_id=resolved_area_id,
+                        pre_start_patch=pre_start_patch,
+                    )
+
             original_service = await self.obs.get_stream_service(
                 host=obs_host,
                 port=obs_port,
@@ -409,9 +447,10 @@ class BilibiliLiveOrchestrator:
             if need_face_auth or qr:
                 return self._failure(
                     "Live start requires operator verification.",
-                    schema="bilibili.live_orchestrator.start_live_session.v1",
+                    schema="bilibili.live_orchestrator.start_live_session.v2",
                     room_id=resolved_room_id,
                     area_id=resolved_area_id,
+                    pre_start_patch=pre_start_patch,
                     operator_action_required=True,
                     verification={
                         "need_face_auth": need_face_auth,
@@ -422,9 +461,10 @@ class BilibiliLiveOrchestrator:
             if not server or not key:
                 return self._failure(
                     "Live start returned no RTMP server/key.",
-                    schema="bilibili.live_orchestrator.start_live_session.v1",
+                    schema="bilibili.live_orchestrator.start_live_session.v2",
                     room_id=resolved_room_id,
                     area_id=resolved_area_id,
+                    pre_start_patch=pre_start_patch,
                     start_response_keys=list(start_resp.keys()),
                 )
 
@@ -456,9 +496,10 @@ class BilibiliLiveOrchestrator:
                 timeout=obs_timeout,
             )
             return self._success(
-                schema="bilibili.live_orchestrator.start_live_session.v1",
+                schema="bilibili.live_orchestrator.start_live_session.v2",
                 room_id=resolved_room_id,
                 area_id=resolved_area_id,
+                pre_start_patch=pre_start_patch,
                 bilibili={
                     "started": True,
                     "status": start_resp.get("status"),

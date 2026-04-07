@@ -612,6 +612,7 @@ The live surface is now real enough to use, but still opinionated:
   - live-room **announcement/news is supported**
   - live-room **title update is supported** via `POST /room/v1/Room/update`
   - `pre_start_room_patch` can now apply title directly and returns Bilibili `audit_info`
+- `start_live_session` can now absorb `title` / `announcement` / `area_id` directly and run the pre-start patch flow before opening the live session
 - **Area semantics**
   - current area can be inspected now
   - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired
@@ -635,8 +636,8 @@ python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚�
 # Preflight OBS + room state
 python main.py live_orchestrator prepare_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
 
-# Start live + apply RTMP to OBS + start OBS output
-python main.py live_orchestrator start_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true}'
+# Start live + patch title/announcement/area + apply RTMP to OBS + start OBS output
+python main.py live_orchestrator start_live_session '{"title": "Rig/2 live dev", "announcement": "今晚八点，来。", "area_id": 216, "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true}'
 
 # Stop live + fetch end-of-session summary (requires saved live_key from start)
 python main.py live_orchestrator stop_live_session '{"live_key": "<live_key>", "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
