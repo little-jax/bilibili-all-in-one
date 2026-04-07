@@ -430,6 +430,8 @@ python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "o
 - successful `start_live_session` writes workspace cache file `bilibili-live-session.json` so another session can stop the live and fetch `StopLiveData` without manually re-pasting `live_key`.
 - `get_live_session_cache` reads that workspace cache with masked sensitive fields by default; set `reveal_sensitive=true` only when you truly need raw values.
 - `clear_live_session_cache` deletes the cache file for manual recovery / reset.
+- `get_live_runtime_stats` can probe session data mid-stream via `live_key`; treat those numbers as provisional until stop.
+- `recover_live_session` combines cache, room health, OBS state, and optional runtime stats into a concrete recommendation.
 - `stop_live_session` now includes a normalized `StopLiveData` summary with derived quality flags.
 - `stop_live_session` reads the workspace cache by default when `live_key` is omitted, then marks that cache inactive after stop.
 - OBS may return `StopStream` 501 when already stopped; this is treated as an idempotent stop path, not a hard failure.

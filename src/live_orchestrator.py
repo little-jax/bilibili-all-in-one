@@ -117,6 +117,143 @@ class BilibiliLiveOrchestrator:
             had_live_key=bool((cache or {}).get("live_key")),
         )
 
+
+    async def get_live_runtime_stats(
+        self,
+        room_id: Optional[int] = None,
+        live_key: Optional[str] = None,
+        use_session_cache: bool = True,
+        include_overview: bool = True,
+        reveal_sensitive: bool = False,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        try:
+            bundle = await self._get_live_room_bundle()
+            cache = self._read_session_cache() if use_session_cache else None
+            resolved_room_id = int(room_id or (cache or {}).get("room_id") or bundle["room_id"])
+            resolved_live_key = live_key or (cache or {}).get("live_key") or (cache or {}).get("last_live_key")
+            room = await self._room(resolved_room_id)
+            room_play = await room.get_room_play_info()
+            room_info = await self._get_room_info(resolved_room_id)
+            stop_like_stats = None
+            stop_like_stats_error = None
+            if resolved_live_key:
+                try:
+                    stop_like_stats = await self._get_stop_live_data(resolved_live_key)
+                    if not reveal_sensitive and isinstance(stop_like_stats, dict):
+                        stop_like_stats["live_key"] = self._mask_value(resolved_live_key, 8, 6)
+                    elif isinstance(stop_like_stats, dict):
+                        stop_like_stats["live_key"] = resolved_live_key
+                except Exception as exc:
+                    stop_like_stats_error = str(exc)
+            overview = None
+            overview_error = None
+            if include_overview:
+                try:
+                    overview = await self._get_live_overview()
+                except Exception as exc:
+                    overview_error = str(exc)
+            live_status = (room_play or {}).get("live_status")
+            is_live = bool(live_status)
+            return self._success(
+                schema="bilibili.live_orchestrator.get_live_runtime_stats.v1",
+                room_id=resolved_room_id,
+                live_key=resolved_live_key if reveal_sensitive else self._mask_value(resolved_live_key, 8, 6),
+                used_cached_live_key=bool(use_session_cache and not live_key and ((cache or {}).get("live_key") or (cache or {}).get("last_live_key"))),
+                provisional=bool(is_live),
+                note="Live-session stats fetched mid-stream are provisional and may continue changing until stop." if is_live else None,
+                room_play_info=room_play,
+                room_info=room_info,
+                stop_like_stats=stop_like_stats,
+                stop_like_stats_error=stop_like_stats_error,
+                overview=overview,
+                overview_error=overview_error,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to fetch live runtime stats: {exc}")
+
+    async def recover_live_session(
+        self,
+        room_id: Optional[int] = None,
+        live_key: Optional[str] = None,
+        use_session_cache: bool = True,
+        obs_host: Optional[str] = None,
+        obs_port: Optional[int] = None,
+        obs_password: Optional[str] = None,
+        obs_timeout: Optional[float] = None,
+        reveal_sensitive: bool = False,
+        include_runtime_stats: bool = True,
+        include_overview: bool = True,
+        transient_grace_seconds: float = 8.0,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        try:
+            cache = self._read_session_cache() if use_session_cache else None
+            health = await self.live_health_check(
+                room_id=room_id or (cache or {}).get("room_id"),
+                obs_host=obs_host,
+                obs_port=obs_port,
+                obs_password=obs_password,
+                obs_timeout=obs_timeout,
+                transient_grace_seconds=transient_grace_seconds,
+            )
+            if not health.get("success"):
+                return self._failure(
+                    "Failed to recover live session because health check failed.",
+                    schema="bilibili.live_orchestrator.recover_live_session.v1",
+                    health=health,
+                )
+            bilibili = health.get("bilibili") or {}
+            obs_status = health.get("obs_status") or {}
+            bilibili_live_status = bilibili.get("live_status")
+            obs_stream = obs_status.get("stream") or {}
+            obs_active = bool(obs_stream.get("active"))
+            resolved_room_id = health.get("room_id")
+            resolved_live_key = live_key or (cache or {}).get("live_key") or (cache or {}).get("last_live_key")
+            runtime_stats = None
+            if include_runtime_stats and resolved_live_key:
+                runtime_stats = await self.get_live_runtime_stats(
+                    room_id=resolved_room_id,
+                    live_key=resolved_live_key,
+                    use_session_cache=use_session_cache,
+                    include_overview=include_overview,
+                    reveal_sensitive=reveal_sensitive,
+                )
+            recommendation = "none"
+            reasoning = []
+            if bilibili_live_status or obs_active:
+                recommendation = "stop_live_session"
+                reasoning.append("At least one live component is still active.")
+                if not resolved_live_key:
+                    reasoning.append("A cached live_key is missing, so stop can still run but stop-session stats may be unavailable.")
+            elif cache and cache.get("active"):
+                recommendation = "clear_live_session_cache"
+                reasoning.append("Live appears offline but cache still claims an active session.")
+            elif cache and (cache.get("last_live_key") or cache.get("last_stop_stats")):
+                recommendation = "inspect_or_clear_cache"
+                reasoning.append("Live is offline; only historical cache residue remains.")
+            recovery = {
+                "recommended_action": recommendation,
+                "reasoning": reasoning,
+                "stop_command_ready": recommendation == "stop_live_session",
+                "clear_cache_ready": recommendation in {"clear_live_session_cache", "inspect_or_clear_cache"},
+                "has_live_key": bool(resolved_live_key),
+                "used_session_cache": bool(cache) and use_session_cache,
+            }
+            return self._success(
+                schema="bilibili.live_orchestrator.recover_live_session.v1",
+                room_id=resolved_room_id,
+                live_key=resolved_live_key if reveal_sensitive else self._mask_value(resolved_live_key, 8, 6),
+                cache=self._present_session_cache(cache, reveal_sensitive=reveal_sensitive),
+                health=health,
+                runtime_stats=runtime_stats,
+                recovery=recovery,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to recover live session: {exc}")
+
     @staticmethod
     def _success(**kwargs) -> Dict[str, Any]:
         return {"success": True, **kwargs}
@@ -249,6 +386,28 @@ class BilibiliLiveOrchestrator:
             "live_key": self._mask_value(live_key, 8, 6),
             "summary": summary,
             "derived": derived,
+            "raw": payload,
+        }
+
+    async def _get_live_overview(self) -> Dict[str, Any]:
+        async with self.auth.get_client() as client:
+            resp = await client.get("https://api.live.bilibili.com/xlive/app-blink/v1/date/Overview")
+            data = resp.json()
+        if data.get("code") != 0:
+            raise RuntimeError(data.get("message", "Failed to fetch live overview"))
+        payload = data.get("data") or {}
+        graph = payload.get("graph") or []
+        normalized = {}
+        for item in graph:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("index") or item.get("name")
+            if key:
+                normalized[str(key)] = item
+        return {
+            "schema": "bilibili.live_orchestrator.live_overview.v1",
+            "graph": graph,
+            "graph_by_index": normalized,
             "raw": payload,
         }
 
@@ -802,6 +961,8 @@ class BilibiliLiveOrchestrator:
             "stop_live_session": self.stop_live_session,
             "get_live_session_cache": self.get_live_session_cache,
             "clear_live_session_cache": self.clear_live_session_cache,
+            "get_live_runtime_stats": self.get_live_runtime_stats,
+            "recover_live_session": self.recover_live_session,
             "live_health_check": self.live_health_check,
             "health_check": self.live_health_check,
         }

@@ -1230,7 +1230,9 @@
               "update_live_title",
               "set_title",
               "get_live_session_cache",
-              "clear_live_session_cache"
+              "clear_live_session_cache",
+              "get_live_runtime_stats",
+              "recover_live_session"
             ],
             "description": "Orchestration action to perform."
           },
@@ -1309,6 +1311,14 @@
           "use_session_cache": {
             "type": "boolean",
             "description": "When stopping, read/write the workspace live-session cache so another session can stop the active live and fetch StopLiveData without manually passing live_key."
+          },
+          "include_runtime_stats": {
+            "type": "boolean",
+            "description": "Include runtime stat probing when recovering a live session."
+          },
+          "include_overview": {
+            "type": "boolean",
+            "description": "Include /xlive/app-blink/v1/date/Overview when fetching runtime stats or recovery data."
           }
         },
         "required": [

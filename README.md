@@ -616,6 +616,8 @@ The live surface is now real enough to use, but still opinionated:
 - successful `start_live_session` now writes `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`, so later sessions can stop the live and fetch `StopLiveData` without manually re-pasting `live_key`
 - `get_live_session_cache` reads that workspace cache with sensitive fields masked by default
 - `clear_live_session_cache` deletes that workspace cache for manual recovery / reset
+- `get_live_runtime_stats` reads current room/live-state plus best-effort session stats from `live_key`; mid-stream values are provisional
+- `recover_live_session` combines cache + room health + OBS state + optional runtime stats into a concrete recovery recommendation
 - **Area semantics**
   - current area can be inspected now
   - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired
