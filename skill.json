@@ -116,7 +116,8 @@
     "src/publisher.py",
     "src/subtitle.py",
     "src/utils.py",
-    "src/watcher.py"
+    "src/watcher.py",
+    "src/live_orchestrator.py"
   ],
   "skills": [
     {
@@ -1158,7 +1159,10 @@
               "start_stream",
               "stop_stream",
               "get_current_program_scene",
-              "current_scene"
+              "current_scene",
+              "stop_output",
+              "get_output_list",
+              "output_list"
             ]
           },
           "host": {
@@ -1192,6 +1196,86 @@
           "reveal_sensitive": {
             "type": "boolean",
             "description": "When true, return full server/key instead of masked values."
+          },
+          "output_name": {
+            "type": "string",
+            "description": "OBS output name for stop_output fallback/manual control. Defaults to adv_stream."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_live_orchestrator",
+      "description": "End-to-end Bilibili + OBS live orchestration with preflight, start, stop, and health-check flows. Sensitive RTMP data is masked by default unless reveal_sensitive=true.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "prepare_live_session",
+              "start_live_session",
+              "stop_live_session",
+              "live_health_check",
+              "health_check"
+            ],
+            "description": "Orchestration action to perform."
+          },
+          "room_id": {
+            "type": "integer",
+            "description": "Optional Bilibili live room id. Defaults to current authenticated account room."
+          },
+          "area_id": {
+            "type": "integer",
+            "description": "Optional Bilibili live area id. Defaults to current chosen area."
+          },
+          "obs_host": {
+            "type": "string",
+            "description": "OBS websocket host."
+          },
+          "obs_port": {
+            "type": "integer",
+            "description": "OBS websocket port."
+          },
+          "obs_password": {
+            "type": "string",
+            "description": "OBS websocket password."
+          },
+          "obs_timeout": {
+            "type": "number",
+            "description": "OBS websocket timeout seconds."
+          },
+          "reveal_sensitive": {
+            "type": "boolean",
+            "description": "Return full RTMP / restore target details instead of masked values."
+          },
+          "auto_start_obs": {
+            "type": "boolean",
+            "description": "When true, start OBS streaming after applying the Bilibili stream target."
+          },
+          "settle_seconds": {
+            "type": "number",
+            "description": "Seconds to wait after starting OBS before collecting follow-up status."
+          },
+          "restore_stream_service": {
+            "type": "boolean",
+            "description": "Whether stop_live_session should restore a previous OBS stream target."
+          },
+          "restore_service_type": {
+            "type": "string",
+            "description": "OBS stream service type for restore."
+          },
+          "restore_server": {
+            "type": "string",
+            "description": "Previous OBS stream server to restore."
+          },
+          "restore_key": {
+            "type": "string",
+            "description": "Previous OBS stream key to restore."
           }
         },
         "required": [

@@ -34,6 +34,7 @@ from src.emoji_client import BilibiliEmojiClient
 from src.content_client import BilibiliContentClient
 from src.discovery_client import BilibiliDiscoveryClient
 from src.obs_client import BilibiliOBSClient
+from src.live_orchestrator import BilibiliLiveOrchestrator
 
 
 class BilibiliAllInOne:
@@ -89,6 +90,7 @@ class BilibiliAllInOne:
         self.content_client = BilibiliContentClient(auth=self.auth)
         self.discovery_client = BilibiliDiscoveryClient(auth=self.auth)
         self.obs_client = BilibiliOBSClient()
+        self.live_orchestrator = BilibiliLiveOrchestrator(auth=self.auth)
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -193,6 +195,10 @@ class BilibiliAllInOne:
             "bilibili_obs": lambda: self.obs_client,
             "obs_client": lambda: self.obs_client,
             "obs": lambda: self.obs_client,
+
+            "bilibili_live_orchestrator": lambda: self.live_orchestrator,
+            "live_orchestrator": lambda: self.live_orchestrator,
+            "live": lambda: self.live_orchestrator,
         }
 
         skill_factory = skill_map.get(skill_name)
@@ -231,6 +237,8 @@ async def main():
         print("  emoji_client     - Bilibili native emoji packs and suggestion helpers")
         print("  content_client   - Dynamics, opus, notes, and articles as first-class objects")
         print("  discovery_client - Unified homepage / hot / rank / topic discovery surface")
+        print("  obs_client       - OBS websocket control with masked stream-target defaults")
+        print("  live_orchestrator - Bilibili + OBS live preflight / start / stop / health-check")
         print()
         print("Examples:")
         print("  python main.py hot_monitor get_hot '{\"limit\": 5}'")
@@ -264,6 +272,8 @@ async def main():
         print("  python main.py content_client get_article_detail '{\"cvid\": 123456}'")
         print("  python main.py discovery_client discovery_snapshot")
         print("  python main.py discovery_client get_hot '{\"page_size\": 5}'")
+        print("  python main.py obs_client get_status '{\"host\": \"127.0.0.1\", \"port\": 4455, \"password\": \"...\"}'")
+        print("  python main.py live_orchestrator prepare_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

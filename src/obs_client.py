@@ -9,6 +9,7 @@ Default posture:
 from __future__ import annotations
 
 import os
+import time
 from typing import Any, Dict, Optional
 
 
@@ -96,6 +97,19 @@ class BilibiliOBSClient:
             if "key" in settings:
                 settings["key"] = self._mask_value(settings.get("key"), keep_start=10, keep_end=6)
         return settings
+
+    @staticmethod
+    def _stream_status_payload(status: Any) -> Dict[str, Any]:
+        return {
+            "output_active": getattr(status, "output_active", None),
+            "output_reconnecting": getattr(status, "output_reconnecting", None),
+            "output_duration": getattr(status, "output_duration", None),
+            "output_bytes": getattr(status, "output_bytes", None),
+            "output_skipped_frames": getattr(status, "output_skipped_frames", None),
+            "output_total_frames": getattr(status, "output_total_frames", None),
+            "output_congestion": getattr(status, "output_congestion", None),
+            "output_timecode": getattr(status, "output_timecode", None),
+        }
 
     async def connect_test(
         self,
@@ -242,7 +256,28 @@ class BilibiliOBSClient:
         except Exception as exc:
             return self._failure(f"Failed to start OBS stream: {exc}")
 
-    async def stop_stream(
+    async def stop_output(
+        self,
+        output_name: str = "adv_stream",
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        password: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        try:
+            client = self._client(host=host, port=port, password=password, timeout=timeout)
+            client.stop_output(output_name)
+            status = client.get_stream_status()
+            return self._success(
+                schema="bilibili.obs_client.stop_output.v1",
+                output_name=output_name,
+                stopped=True,
+                status=self._stream_status_payload(status),
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to stop OBS output {output_name}: {exc}")
+
+    async def get_output_list(
         self,
         host: Optional[str] = None,
         port: Optional[int] = None,
@@ -251,13 +286,51 @@ class BilibiliOBSClient:
     ) -> Dict[str, Any]:
         try:
             client = self._client(host=host, port=port, password=password, timeout=timeout)
-            client.stop_stream()
-            status = client.get_stream_status()
+            outputs = client.get_output_list()
             return self._success(
-                schema="bilibili.obs_client.stop_stream.v1",
-                stopped=True,
-                output_active=getattr(status, "output_active", None),
-                output_reconnecting=getattr(status, "output_reconnecting", None),
+                schema="bilibili.obs_client.output_list.v1",
+                outputs=getattr(outputs, "outputs", None),
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to fetch OBS output list: {exc}")
+
+    async def stop_stream(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        password: Optional[str] = None,
+        timeout: Optional[float] = None,
+        fallback_output_name: str = "adv_stream",
+        settle_ms: int = 1500,
+        force_output_stop: bool = True,
+    ) -> Dict[str, Any]:
+        try:
+            client = self._client(host=host, port=port, password=password, timeout=timeout)
+            events = []
+            try:
+                client.stop_stream()
+                events.append({"step": "stop_stream_sent"})
+            except Exception as exc:
+                events.append({"step": "stop_stream_error", "error": str(exc)})
+            if settle_ms > 0:
+                time.sleep(settle_ms / 1000.0)
+            status = client.get_stream_status()
+            events.append({"step": "post_stop_stream_status", "status": self._stream_status_payload(status)})
+            if force_output_stop and getattr(status, "output_active", None):
+                client.stop_output(fallback_output_name)
+                time.sleep(1.0)
+                status = client.get_stream_status()
+                events.append({
+                    "step": "stop_output_fallback",
+                    "output_name": fallback_output_name,
+                    "status": self._stream_status_payload(status),
+                })
+            return self._success(
+                schema="bilibili.obs_client.stop_stream.v2",
+                stopped=not bool(getattr(status, "output_active", None)),
+                used_output_fallback=any(e.get("step") == "stop_output_fallback" for e in events),
+                final_status=self._stream_status_payload(status),
+                events=events,
             )
         except Exception as exc:
             return self._failure(f"Failed to stop OBS stream: {exc}")
@@ -292,6 +365,9 @@ class BilibiliOBSClient:
             "apply_stream_target": self.set_stream_service,
             "start_stream": self.start_stream,
             "stop_stream": self.stop_stream,
+            "stop_output": self.stop_output,
+            "get_output_list": self.get_output_list,
+            "output_list": self.get_output_list,
             "get_current_program_scene": self.get_current_program_scene,
             "current_scene": self.get_current_program_scene,
         }
