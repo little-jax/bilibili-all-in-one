@@ -614,6 +614,8 @@ The live surface is now real enough to use, but still opinionated:
   - `pre_start_room_patch` can now apply title directly and returns Bilibili `audit_info`
 - `start_live_session` can now absorb `title` / `announcement` / `area_id` directly and run the pre-start patch flow before opening the live session
 - successful `start_live_session` now writes `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`, so later sessions can stop the live and fetch `StopLiveData` without manually re-pasting `live_key`
+- `get_live_session_cache` reads that workspace cache with sensitive fields masked by default
+- `clear_live_session_cache` deletes that workspace cache for manual recovery / reset
 - **Area semantics**
   - current area can be inspected now
   - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired

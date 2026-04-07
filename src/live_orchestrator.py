@@ -58,6 +58,65 @@ class BilibiliLiveOrchestrator:
         self._write_session_cache(current)
         return current
 
+    def _present_session_cache(self, cache: Optional[Dict[str, Any]], reveal_sensitive: bool = False) -> Optional[Dict[str, Any]]:
+        if not isinstance(cache, dict):
+            return None
+        presented = json.loads(json.dumps(cache))
+        if reveal_sensitive:
+            return presented
+        if presented.get("live_key"):
+            presented["live_key"] = self._mask_value(presented.get("live_key"), 8, 6)
+        if presented.get("last_live_key"):
+            presented["last_live_key"] = self._mask_value(presented.get("last_live_key"), 8, 6)
+        restore_stream_service = presented.get("restore_stream_service")
+        if isinstance(restore_stream_service, dict):
+            stream_service = restore_stream_service.get("stream_service") or {}
+            settings = stream_service.get("settings") or {}
+            if settings.get("server"):
+                settings["server"] = self._mask_value(settings.get("server"), 22, 8)
+            if settings.get("key"):
+                settings["key"] = self._mask_value(settings.get("key"), 12, 8)
+        bilibili_start_response = presented.get("bilibili_start_response")
+        if isinstance(bilibili_start_response, dict):
+            rtmp = bilibili_start_response.get("rtmp") or {}
+            if bilibili_start_response.get("live_key"):
+                bilibili_start_response["live_key"] = self._mask_value(bilibili_start_response.get("live_key"), 8, 6)
+            if rtmp.get("addr"):
+                rtmp["addr"] = self._mask_value(rtmp.get("addr"), 22, 8)
+            if rtmp.get("code"):
+                rtmp["code"] = self._mask_value(rtmp.get("code"), 12, 8)
+        return presented
+
+    async def get_live_session_cache(self, reveal_sensitive: bool = False) -> Dict[str, Any]:
+        cache = self._read_session_cache()
+        return self._success(
+            schema="bilibili.live_orchestrator.get_live_session_cache.v1",
+            path=str(self.session_cache_path),
+            exists=self.session_cache_path.exists(),
+            active=bool((cache or {}).get("active")),
+            room_id=(cache or {}).get("room_id"),
+            area_id=(cache or {}).get("area_id"),
+            has_live_key=bool((cache or {}).get("live_key")),
+            has_last_live_key=bool((cache or {}).get("last_live_key")),
+            reveal_sensitive=reveal_sensitive,
+            cache=self._present_session_cache(cache, reveal_sensitive=reveal_sensitive),
+        )
+
+    async def clear_live_session_cache(self) -> Dict[str, Any]:
+        cache = self._read_session_cache()
+        existed = self.session_cache_path.exists()
+        if existed:
+            self.session_cache_path.unlink()
+        return self._success(
+            schema="bilibili.live_orchestrator.clear_live_session_cache.v1",
+            path=str(self.session_cache_path),
+            existed=existed,
+            cleared=True,
+            previous_active=bool((cache or {}).get("active")),
+            previous_room_id=(cache or {}).get("room_id"),
+            had_live_key=bool((cache or {}).get("live_key")),
+        )
+
     @staticmethod
     def _success(**kwargs) -> Dict[str, Any]:
         return {"success": True, **kwargs}
@@ -741,6 +800,8 @@ class BilibiliLiveOrchestrator:
             "prepare_live_session": self.prepare_live_session,
             "start_live_session": self.start_live_session,
             "stop_live_session": self.stop_live_session,
+            "get_live_session_cache": self.get_live_session_cache,
+            "clear_live_session_cache": self.clear_live_session_cache,
             "live_health_check": self.live_health_check,
             "health_check": self.live_health_check,
         }

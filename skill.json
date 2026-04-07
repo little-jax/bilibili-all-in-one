@@ -1228,7 +1228,9 @@
               "set_announcement",
               "pre_start_room_patch",
               "update_live_title",
-              "set_title"
+              "set_title",
+              "get_live_session_cache",
+              "clear_live_session_cache"
             ],
             "description": "Orchestration action to perform."
           },
