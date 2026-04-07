@@ -200,7 +200,7 @@ class BilibiliLiveOrchestrator:
     ) -> Dict[str, Any]:
         if (err := self._require_library()) or (err := self._require_auth()):
             return err
-        if not content:
+        if content is None:
             return self._failure("content is required")
         try:
             bundle = await self._get_live_room_bundle()
@@ -215,6 +215,47 @@ class BilibiliLiveOrchestrator:
             )
         except Exception as exc:
             return self._failure(f"Failed to update live announcement: {exc}")
+
+    async def update_live_title(
+        self,
+        title: str,
+        room_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        if title is None or str(title).strip() == "":
+            return self._failure("title is required")
+        try:
+            bundle = await self._get_live_room_bundle()
+            resolved_room_id = int(room_id or bundle["room_id"])
+            async with self.auth.get_client() as client:
+                resp = await client.post(
+                    "https://api.live.bilibili.com/room/v1/Room/update",
+                    data={
+                        "room_id": resolved_room_id,
+                        "title": title,
+                        "csrf": self.auth.bili_jct,
+                        "csrf_token": self.auth.bili_jct,
+                    },
+                )
+                data = resp.json()
+            if data.get("code") != 0:
+                return self._failure(
+                    data.get("message", "Failed to update live title"),
+                    schema="bilibili.live_orchestrator.update_live_title.v1",
+                    room_id=resolved_room_id,
+                    title=title,
+                    raw=data,
+                )
+            return self._success(
+                schema="bilibili.live_orchestrator.update_live_title.v1",
+                room_id=resolved_room_id,
+                title=title,
+                audit_info=(data.get("data") or {}).get("audit_info"),
+                raw=data,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to update live title: {exc}")
 
     async def pre_start_room_patch(
         self,
@@ -232,14 +273,13 @@ class BilibiliLiveOrchestrator:
             changes = []
             unsupported = []
             announcement_result = None
+            title_result = None
             if announcement is not None:
                 announcement_result = await self.update_live_announcement(content=announcement, room_id=resolved_room_id)
                 changes.append("announcement")
             if title is not None:
-                unsupported.append({
-                    "field": "title",
-                    "reason": "Live title update endpoint is not yet confirmed from bilibili-api or bilibili_live_stream code. Refusing to guess a write endpoint.",
-                })
+                title_result = await self.update_live_title(title=title, room_id=resolved_room_id)
+                changes.append("title")
             target_area = None
             if area_id is not None:
                 current_area = await self._get_current_area(resolved_room_id)
@@ -261,6 +301,7 @@ class BilibiliLiveOrchestrator:
                 },
                 applied={
                     "announcement": announcement_result,
+                    "title": title_result,
                     "area": target_area,
                 },
                 unsupported=unsupported,
@@ -567,6 +608,8 @@ class BilibiliLiveOrchestrator:
             "room_profile": self.get_live_room_profile,
             "update_live_announcement": self.update_live_announcement,
             "set_announcement": self.update_live_announcement,
+            "update_live_title": self.update_live_title,
+            "set_title": self.update_live_title,
             "pre_start_room_patch": self.pre_start_room_patch,
             "prepare_live_session": self.prepare_live_session,
             "start_live_session": self.start_live_session,

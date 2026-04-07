@@ -1226,7 +1226,9 @@
               "room_profile",
               "update_live_announcement",
               "set_announcement",
-              "pre_start_room_patch"
+              "pre_start_room_patch",
+              "update_live_title",
+              "set_title"
             ],
             "description": "Orchestration action to perform."
           },
@@ -1300,7 +1302,7 @@
           },
           "title": {
             "type": "string",
-            "description": "Requested live title. Currently reported as unsupported until a confirmed write endpoint is found."
+            "description": "Live-room title. Confirmed write path: POST /room/v1/Room/update with room_id + title + csrf + csrf_token."
           }
         },
         "required": [

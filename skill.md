@@ -386,7 +386,8 @@ Bilibili + OBS live control surface for room inspection, announcement updates, p
 |---|---|
 | `get_live_room_profile` / `room_profile` | Inspect current room title, description, live status, area, and room news |
 | `update_live_announcement` / `set_announcement` | Update the room announcement/news |
-| `pre_start_room_patch` | Apply safe pre-start changes now and report unsupported/pending fields explicitly |
+| `update_live_title` / `set_title` | Update the live-room title and return Bilibili audit info |
+| `pre_start_room_patch` | Apply safe pre-start changes now and return title/announcement results plus start-time area plan |
 | `prepare_live_session` | Preflight room + OBS connection + current stream target |
 | `start_live_session` | Start Bilibili live, capture RTMP target, apply to OBS, optionally start OBS output |
 | `stop_live_session` | Stop OBS + Bilibili live, optionally restore OBS target, and fetch `StopLiveData` when `live_key` is provided |
@@ -400,6 +401,9 @@ python main.py live_orchestrator get_live_room_profile
 
 # Update announcement / room news
 python main.py live_orchestrator update_live_announcement '{"content": "今晚八点，来。"}'
+
+# Update live-room title
+python main.py live_orchestrator update_live_title '{"title": "Rig/2 live dev"}'
 
 # Patch pre-start room state
 python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚八点，来。", "area_id": 216, "title": "Rig/2 live dev"}'
@@ -420,8 +424,8 @@ python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "o
 #### Important behavior notes
 
 - `announcement` is supported now via `updateRoomNews`.
+- `title` is supported now via `POST /room/v1/Room/update` and returns Bilibili `audit_info`.
 - `area_id` is treated as a confirmed **start-time patch** because `startLive(area_v2=...)` is the write path we have wired.
-- **Live title update is not wired yet.** The endpoint is still unconfirmed, so `pre_start_room_patch` reports it as unsupported instead of guessing.
 - `stop_live_session` now includes a normalized `StopLiveData` summary with derived quality flags.
 - OBS may return `StopStream` 501 when already stopped; this is treated as an idempotent stop path, not a hard failure.
 - If OBS still looks active, the stop flow can fall back to `StopOutput("adv_stream")`.
@@ -556,6 +560,14 @@ Creator analytics client backed by `bilibili_api.creative_center`, intended for 
 - If Bilibili auth or creator permissions are missing, expect structured failure output instead of raw tracebacks
 
 ---
+
+### Title update verification note
+
+Real-world verification now confirms the live title write path:
+
+- endpoint: `POST /room/v1/Room/update`
+- required fields: `room_id`, `title`, `csrf`, `csrf_token`
+- safe verification method: write back the current title unchanged and inspect the returned `audit_info`
 
 ### 1.9 📡 OBS Client (`bilibili_obs`)
 

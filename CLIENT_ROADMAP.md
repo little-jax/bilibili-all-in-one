@@ -406,9 +406,9 @@ Turn Bilibili live support into a real operator-facing orchestration layer inste
 - `live_orchestrator` exists and already supports: room profile, announcement update, pre-start patch planning, prepare/start/stop live session, health check
 - `stop_live_session` can now fetch `StopLiveData` when given `live_key`, returning normalized summary + derived quality flags
 - current confirmed live-metadata write surface:
-  - announcement/news: **supported now**
+  - announcement/news: **supported now** via `updateRoomNews`
+  - title: **supported now** via `POST /room/v1/Room/update`
   - area: **supported as start-time patch** via `startLive(area_v2=...)`
-  - title: **still unconfirmed / unsupported** until a verified write endpoint is found
 - health checks now distinguish healthy vs split state vs transient stop-settling vs OBS reconnecting
 - OBS stop path now treats `StopStream` 501 as idempotent and can fall back to `StopOutput("adv_stream")`
 
@@ -479,7 +479,7 @@ Use this as the quick mental model for current live support:
 - `prepare_live_session` is the safest preflight before touching OBS output state
 - `start_live_session` returns the `live_key`; save it if you care about end-of-session stats
 - `stop_live_session` should be given that `live_key` whenever possible so `StopLiveData` can be fetched
-- do not claim title updates are supported yet; the endpoint is still under investigation
+- title updates are now confirmed through `POST /room/v1/Room/update`; preserve returned `audit_info` because Bilibili may audit/normalize the title change
 - if QR / face verification appears, surface it as operator action required; do not bury it in logs
 
 Recommended field meanings for live stop summaries:

@@ -275,11 +275,12 @@ async def main():
         print("  python main.py obs_client get_status '{\"host\": \"127.0.0.1\", \"port\": 4455, \"password\": \"...\"}'")
         print("  python main.py obs_client stop_output '{\"host\": \"127.0.0.1\", \"port\": 4455, \"password\": \"...\", \"output_name\": \"adv_stream\"}'")
         print("  python main.py live_orchestrator get_live_room_profile")
+        print("  python main.py live_orchestrator update_live_title '{\"title\": \"Rig/2 live dev\"}'")
         print("  python main.py live_orchestrator pre_start_room_patch '{\"announcement\": \"今晚八点，来。\", \"area_id\": 216, \"title\": \"Rig/2 live dev\"}'")
         print("  python main.py live_orchestrator prepare_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
         print("  python main.py live_orchestrator start_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\", \"auto_start_obs\": true}'")
         print("  python main.py live_orchestrator stop_live_session '{\"live_key\": \"<live_key>\", \"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
-        print("  # note: live title update is still unconfirmed; pre_start_room_patch reports it as unsupported instead of guessing")
+        print("  # note: title update is confirmed via POST /room/v1/Room/update; preserve audit_info in responses")
     skill_name = sys.argv[1]
     action = sys.argv[2]
     params = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}

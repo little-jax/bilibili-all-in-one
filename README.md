@@ -610,8 +610,8 @@ The live surface is now real enough to use, but still opinionated:
   - returns a normalized summary + derived quality flags
 - **Current title status**
   - live-room **announcement/news is supported**
-  - live-room **title update is not wired yet** because the write endpoint is still unconfirmed
-  - `pre_start_room_patch` will report title as unsupported instead of guessing
+  - live-room **title update is supported** via `POST /room/v1/Room/update`
+  - `pre_start_room_patch` can now apply title directly and returns Bilibili `audit_info`
 - **Area semantics**
   - current area can be inspected now
   - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired
@@ -629,7 +629,7 @@ Practical examples:
 # Inspect room profile + current title/description/announcement/area
 python main.py live_orchestrator get_live_room_profile
 
-# Patch pre-start state (announcement now; area planned for start-time; title currently unsupported)
+# Patch pre-start state (announcement + title now; area still planned for start-time)
 python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚八点，来。", "area_id": 216, "title": "Rig/2 live dev"}'
 
 # Preflight OBS + room state
@@ -658,6 +658,13 @@ python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "o
 - `derived.engagement.fan_gain_per_hour`
 - `derived.quality_flags.invalid_duration`
 - `derived.quality_flags.empty_session`
+
+Title update notes:
+
+- confirmed write path: `POST /room/v1/Room/update`
+- confirmed required field shape: `room_id`, `title`, `csrf`, `csrf_token`
+- current response includes `audit_info.audit_title_status`, `audit_info.audit_title_reason`, and `audit_info.update_title`
+- practical rule: trust the response `audit_info`; Bilibili may still subject title changes to audit semantics
 
 If Bilibili returns sentinel junk like `-999999`, the schema keeps it visible via `raw` and marks it in `quality_flags` instead of pretending it is clean data.
 
