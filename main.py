@@ -33,6 +33,7 @@ from src.asset_client import BilibiliAssetClient
 from src.emoji_client import BilibiliEmojiClient
 from src.content_client import BilibiliContentClient
 from src.discovery_client import BilibiliDiscoveryClient
+from src.obs_client import BilibiliOBSClient
 
 
 class BilibiliAllInOne:
@@ -87,6 +88,7 @@ class BilibiliAllInOne:
         self.emoji_client = BilibiliEmojiClient(auth=self.auth)
         self.content_client = BilibiliContentClient(auth=self.auth)
         self.discovery_client = BilibiliDiscoveryClient(auth=self.auth)
+        self.obs_client = BilibiliOBSClient()
         self._publisher = None  # Lazy init (requires auth)
 
     @property
@@ -187,6 +189,10 @@ class BilibiliAllInOne:
             "bilibili_discovery_client": lambda: self.discovery_client,
             "discovery_client": lambda: self.discovery_client,
             "discovery": lambda: self.discovery_client,
+
+            "bilibili_obs": lambda: self.obs_client,
+            "obs_client": lambda: self.obs_client,
+            "obs": lambda: self.obs_client,
         }
 
         skill_factory = skill_map.get(skill_name)

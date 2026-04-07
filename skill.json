@@ -108,6 +108,7 @@
     "src/auth_client.py",
     "src/content_client.py",
     "src/discovery_client.py",
+    "src/obs_client.py",
     "src/downloader.py",
     "src/emoji_client.py",
     "src/hot_monitor.py",
@@ -699,14 +700,7 @@
             "type": "boolean"
           },
           "period": {
-            "type": "string",
-            "enum": [
-              "yesterday",
-              "week",
-              "month",
-              "three_month",
-              "total"
-            ]
+            "type": "string"
           },
           "source": {
             "type": "string",
@@ -740,9 +734,6 @@
           },
           "approved": {
             "type": "boolean"
-          },
-          "period": {
-            "type": "string"
           },
           "priority_threshold": {
             "type": "integer"
@@ -1138,6 +1129,69 @@
           },
           "topic_limit": {
             "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "bilibili_obs",
+      "description": "Connect to OBS websocket for live-stream control. Default responses mask sensitive stream server/key unless reveal_sensitive=true is explicitly provided.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Action to perform.",
+            "enum": [
+              "connect_test",
+              "verify_connection",
+              "get_status",
+              "status",
+              "get_stream_service",
+              "stream_service",
+              "set_stream_service",
+              "apply_stream_target",
+              "start_stream",
+              "stop_stream",
+              "get_current_program_scene",
+              "current_scene"
+            ]
+          },
+          "host": {
+            "type": "string",
+            "description": "OBS websocket host. Defaults to 127.0.0.1."
+          },
+          "port": {
+            "type": "integer",
+            "description": "OBS websocket port. Defaults to 4455."
+          },
+          "password": {
+            "type": "string",
+            "description": "OBS websocket password."
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Connection timeout seconds."
+          },
+          "server": {
+            "type": "string",
+            "description": "RTMP server URL for set_stream_service/apply_stream_target."
+          },
+          "key": {
+            "type": "string",
+            "description": "RTMP stream key for set_stream_service/apply_stream_target."
+          },
+          "service_type": {
+            "type": "string",
+            "description": "OBS stream service type. Defaults to rtmp_custom."
+          },
+          "reveal_sensitive": {
+            "type": "boolean",
+            "description": "When true, return full server/key instead of masked values."
           }
         },
         "required": [
