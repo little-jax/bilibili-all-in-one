@@ -1303,6 +1303,10 @@
           "title": {
             "type": "string",
             "description": "Live-room title. Confirmed write path: POST /room/v1/Room/update with room_id + title + csrf + csrf_token."
+          },
+          "use_session_cache": {
+            "type": "boolean",
+            "description": "When stopping, read/write the workspace live-session cache so another session can stop the active live and fetch StopLiveData without manually passing live_key."
           }
         },
         "required": [

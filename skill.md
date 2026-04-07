@@ -427,7 +427,9 @@ python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "o
 - `title` is supported now via `POST /room/v1/Room/update` and returns Bilibili `audit_info`.
 - `area_id` is treated as a confirmed **start-time patch** because `startLive(area_v2=...)` is the write path we have wired.
 - `start_live_session` now runs the same safe pre-start patch logic when `title`, `announcement`, or `area_id` is provided; if title/announcement patching fails, the live start is aborted instead of pretending success.
+- successful `start_live_session` writes workspace cache file `bilibili-live-session.json` so another session can stop the live and fetch `StopLiveData` without manually re-pasting `live_key`.
 - `stop_live_session` now includes a normalized `StopLiveData` summary with derived quality flags.
+- `stop_live_session` reads the workspace cache by default when `live_key` is omitted, then marks that cache inactive after stop.
 - OBS may return `StopStream` 501 when already stopped; this is treated as an idempotent stop path, not a hard failure.
 - If OBS still looks active, the stop flow can fall back to `StopOutput("adv_stream")`.
 
@@ -563,6 +565,13 @@ Creator analytics client backed by `bilibili_api.creative_center`, intended for 
 ---
 
 ### Title update verification note
+
+Workspace live-session cache:
+
+- path: `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`
+- written on successful live start
+- read on stop when `live_key` is omitted
+- preserves `last_stop_stats` / `last_live_key` after stop for later inspection
 
 Real-world verification now confirms the live title write path:
 

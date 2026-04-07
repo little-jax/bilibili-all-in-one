@@ -613,6 +613,7 @@ The live surface is now real enough to use, but still opinionated:
   - live-room **title update is supported** via `POST /room/v1/Room/update`
   - `pre_start_room_patch` can now apply title directly and returns Bilibili `audit_info`
 - `start_live_session` can now absorb `title` / `announcement` / `area_id` directly and run the pre-start patch flow before opening the live session
+- successful `start_live_session` now writes `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`, so later sessions can stop the live and fetch `StopLiveData` without manually re-pasting `live_key`
 - **Area semantics**
   - current area can be inspected now
   - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired
@@ -666,6 +667,13 @@ Title update notes:
 - confirmed required field shape: `room_id`, `title`, `csrf`, `csrf_token`
 - current response includes `audit_info.audit_title_status`, `audit_info.audit_title_reason`, and `audit_info.update_title`
 - practical rule: trust the response `audit_info`; Bilibili may still subject title changes to audit semantics
+
+Workspace live-session cache notes:
+
+- cache path: `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`
+- `start_live_session` writes: `room_id`, `area_id`, `live_key`, `restore_stream_service`, timestamps, and recent start context
+- `stop_live_session` reads that cache by default when `live_key` is omitted
+- after stop, cache is marked `active: false`, `live_key` is cleared, and `last_stop_stats` / `last_live_key` are preserved for debugging and postmortem review
 
 If Bilibili returns sentinel junk like `-999999`, the schema keeps it visible via `raw` and marks it in `quality_flags` instead of pretending it is clean data.
 

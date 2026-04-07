@@ -10,6 +10,9 @@ Design goals:
 from __future__ import annotations
 
 import asyncio
+import json
+import time
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .auth import BilibiliAuth
@@ -32,6 +35,28 @@ class BilibiliLiveOrchestrator:
     def __init__(self, auth: Optional[BilibiliAuth] = None):
         self.auth = auth or BilibiliAuth()
         self.obs = BilibiliOBSClient()
+        self.session_cache_path = Path(__file__).resolve().parents[3] / "bilibili-live-session.json"
+
+    def _read_session_cache(self) -> Optional[Dict[str, Any]]:
+        try:
+            if not self.session_cache_path.exists():
+                return None
+            data = json.loads(self.session_cache_path.read_text())
+            return data if isinstance(data, dict) else None
+        except Exception:
+            return None
+
+    def _write_session_cache(self, payload: Dict[str, Any]) -> None:
+        self.session_cache_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+    def _update_session_cache(self, **patch: Any) -> Dict[str, Any]:
+        current = self._read_session_cache() or {
+            "schema": "bilibili.live_orchestrator.session_cache.v1",
+        }
+        current.update(patch)
+        current["updated_at"] = int(time.time())
+        self._write_session_cache(current)
+        return current
 
     @staticmethod
     def _success(**kwargs) -> Dict[str, Any]:
@@ -468,6 +493,19 @@ class BilibiliLiveOrchestrator:
                     start_response_keys=list(start_resp.keys()),
                 )
 
+            session_cache = self._update_session_cache(
+                room_id=resolved_room_id,
+                area_id=resolved_area_id,
+                active=True,
+                started_at=int(time.time()),
+                live_key=start_resp.get("live_key"),
+                title=title,
+                announcement=announcement,
+                pre_start_patch=pre_start_patch,
+                restore_stream_service=original_service,
+                bilibili_start_response=start_resp,
+            )
+
             apply_resp = await self.obs.set_stream_service(
                 server=server,
                 key=key,
@@ -514,6 +552,12 @@ class BilibiliLiveOrchestrator:
                 obs_start=obs_start,
                 obs_status=obs_status,
                 previous_obs_stream_service=original_service,
+                session_cache={
+                    "path": str(self.session_cache_path),
+                    "active": session_cache.get("active"),
+                    "room_id": session_cache.get("room_id"),
+                    "has_live_key": bool(session_cache.get("live_key")),
+                },
             )
         except Exception as exc:
             return self._failure(f"Failed to start live session: {exc}")
@@ -526,6 +570,7 @@ class BilibiliLiveOrchestrator:
         obs_port: Optional[int] = None,
         obs_password: Optional[str] = None,
         obs_timeout: Optional[float] = None,
+        use_session_cache: bool = True,
         restore_stream_service: bool = False,
         restore_service_type: Optional[str] = None,
         restore_server: Optional[str] = None,
@@ -536,7 +581,9 @@ class BilibiliLiveOrchestrator:
             return err
         try:
             bundle = await self._get_live_room_bundle()
-            resolved_room_id = int(room_id or bundle["room_id"])
+            cache = self._read_session_cache() if use_session_cache else None
+            resolved_room_id = int(room_id or (cache or {}).get("room_id") or bundle["room_id"])
+            resolved_live_key = live_key or (cache or {}).get("live_key")
             obs_stop = await self.obs.stop_stream(
                 host=obs_host,
                 port=obs_port,
@@ -546,11 +593,11 @@ class BilibiliLiveOrchestrator:
             room = await self._room(resolved_room_id)
             stop_resp = await room.stop()
             stop_stats = None
-            if live_key:
+            if resolved_live_key:
                 try:
-                    stop_stats = await self._get_stop_live_data(live_key)
+                    stop_stats = await self._get_stop_live_data(resolved_live_key)
                 except Exception as exc:
-                    stop_stats = {"success": False, "message": str(exc), "live_key": self._mask_value(live_key, 8, 6)}
+                    stop_stats = {"success": False, "message": str(exc), "live_key": self._mask_value(resolved_live_key, 8, 6)}
             restore_resp = None
             if restore_stream_service and restore_server and restore_key:
                 restore_resp = await self.obs.set_stream_service(
@@ -563,12 +610,44 @@ class BilibiliLiveOrchestrator:
                     password=obs_password,
                     timeout=obs_timeout,
                 )
+            elif restore_stream_service and cache and isinstance(cache.get("restore_stream_service"), dict):
+                restore_service = cache.get("restore_stream_service") or {}
+                restore_stream = restore_service.get("stream_service") or {}
+                restore_settings = restore_stream.get("settings") or {}
+                restore_resp = await self.obs.set_stream_service(
+                    server=restore_settings.get("server", ""),
+                    key=restore_settings.get("key", ""),
+                    service_type=restore_stream.get("type") or "rtmp_custom",
+                    reveal_sensitive=reveal_sensitive,
+                    host=obs_host,
+                    port=obs_port,
+                    password=obs_password,
+                    timeout=obs_timeout,
+                    use_auth=bool(restore_settings.get("use_auth", False)),
+                    bwtest=bool(restore_settings.get("bwtest", False)),
+                )
             obs_status = await self.obs.get_status(
                 host=obs_host,
                 port=obs_port,
                 password=obs_password,
                 timeout=obs_timeout,
             )
+            session_cache = None
+            if use_session_cache:
+                session_cache = self._update_session_cache(
+                    room_id=resolved_room_id,
+                    area_id=(cache or {}).get("area_id"),
+                    active=False,
+                    stopped_at=int(time.time()),
+                    live_key=None,
+                    last_live_key=resolved_live_key,
+                    last_stop_stats=stop_stats,
+                    last_bilibili_stop={
+                        "status": stop_resp.get("status"),
+                        "change": stop_resp.get("change"),
+                        "raw": stop_resp,
+                    },
+                )
             return self._success(
                 schema="bilibili.live_orchestrator.stop_live_session.v2",
                 room_id=resolved_room_id,
@@ -581,6 +660,13 @@ class BilibiliLiveOrchestrator:
                 stop_stats=stop_stats,
                 obs_restore=restore_resp,
                 obs_status=obs_status,
+                session_cache={
+                    "path": str(self.session_cache_path),
+                    "active": session_cache.get("active") if session_cache else None,
+                    "room_id": session_cache.get("room_id") if session_cache else None,
+                    "used_cached_live_key": bool((cache or {}).get("live_key")) and not bool(live_key),
+                    "has_last_live_key": bool(session_cache.get("last_live_key")) if session_cache else False,
+                },
             )
         except Exception as exc:
             return self._failure(f"Failed to stop live session: {exc}")
