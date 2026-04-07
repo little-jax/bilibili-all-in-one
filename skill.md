@@ -440,12 +440,47 @@ python main.py client_workflows content_opportunity_brief '{"period": "week", "m
 - `operator_decision_loop` returns a concrete decision, enriched object context, and operator brief
 - `draft_reply_candidate` returns a reply draft plus a send-plan preview
 - `send_or_queue_reply` sends DMs directly, public replies only when thread mapping is proven, and otherwise returns a structured queue item
+- `automation_brief` is the preferred automation snapshot for cron/sub-agents: dashboard + tasks + reply targets + opportunities + normalized `next_actions`.
+- `automation_tick` is the lightweight automation poll result: `recommended_mode`, `should_act`, and the top next action.
+- Use **OpenClaw Cron Job**, not Unix cron, for OpenClaw-native scheduling of these workflows.
+- Prefer **cron** for exact schedules / isolated runs, and **heartbeat** for drift-tolerant review loops and low-urgency scanning.
 - `creator_dashboard_snapshot` merges `message_center` + `creative_center`
 - `creator_task_queue` produces structured work items with `type`, `priority`, `risk`, `reason`, and `payload`
 - Workflow actions increasingly include a `schema` field like `bilibili.client_workflows.<action>.v1` for downstream consumers
 - Use this layer when the task is operational, not just raw endpoint access
 
 ---
+
+#### Automation scheduling guidance
+
+Use the workflow layer as the automation boundary.
+
+- **Do use OpenClaw Cron Job** for scheduled automation in OpenClaw.
+- **Do not prefer Unix cron** for these in-agent workflows unless you are intentionally operating outside OpenClaw runtime.
+- **Cron is best for**: exact schedules, isolated agent turns, recurring digests, fixed 15-minute / hourly review loops.
+- **Heartbeat is best for**: low-pressure review sweeps, drift-tolerant monitoring, and “only interrupt me if something actually matters.”
+
+OpenClaw Cron Job example:
+
+```json
+{
+  "name": "bilibili-automation-tick",
+  "schedule": {
+    "kind": "cron",
+    "expr": "*/15 * * * *",
+    "tz": "Asia/Shanghai"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run: python main.py client_workflows automation_tick '{\"period\": \"week\", \"max_items\": 5, \"priority_threshold\": 80, \"mode\": \"review\"}'. Summarize the top next action and keep reply sending on the preview/approval path.",
+    "timeoutSeconds": 120
+  },
+  "delivery": {
+    "mode": "announce"
+  }
+}
+```
 
 ### 1.6 📈 Creative Center (`creative_center`)
 

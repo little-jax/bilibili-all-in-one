@@ -584,7 +584,7 @@ This maintained fork is published under **MIT-0**. Upstream attribution is prese
 
 ## 🤖 Automation Flow
 
-Use the workflow layer for automation. Do **not** make cron jobs stitch together raw inbox / analytics / discovery calls unless you actually need low-level control.
+Use the workflow layer for automation. Do **not** make scheduled jobs stitch together raw inbox / analytics / discovery calls unless you actually need low-level control.
 
 Recommended automation stack:
 
@@ -592,7 +592,7 @@ Recommended automation stack:
    - one-shot operator snapshot
    - includes dashboard, task queue, reply targets, opportunities, message-center automation snapshot, and normalized `next_actions`
 2. `client_workflows.automation_tick`
-   - lightweight "what should happen now" result for cron/sub-agents
+   - lightweight “what should happen now” result for cron/sub-agents
    - returns `recommended_mode`, `should_act`, `next_action`, and the full brief
 3. reply loop when human confirmation is required
    - `reply_preview_card`
@@ -602,6 +602,39 @@ Practical rule:
 - use `automation_tick` for periodic checks
 - use `automation_brief` for richer dashboards or agent planning
 - use preview/approval actions for anything that may actually send a reply
+
+Scheduling rule:
+- use **OpenClaw Cron Job**, not Unix cron, for automated Bilibili workflows inside OpenClaw
+- use **cron** when timing matters or you want exact/isolated runs
+- use **heartbeat** for drift-tolerant review loops, low-urgency polling, or batched “check if anything needs attention” passes
+- schedule stable workflow actions instead of wiring low-level Bilibili endpoints directly into timers
+
+OpenClaw Cron Job example:
+
+```json
+{
+  "name": "bilibili-automation-tick",
+  "schedule": {
+    "kind": "cron",
+    "expr": "*/15 * * * *",
+    "tz": "Asia/Shanghai"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "In the bilibili-all-in-one repo, run: python main.py client_workflows automation_tick '{\"period\": \"week\", \"max_items\": 5, \"priority_threshold\": 80, \"mode\": \"review\"}'. Summarize the top action. If a reply is needed, keep it on the preview/approval path instead of sending directly.",
+    "timeoutSeconds": 120
+  },
+  "delivery": {
+    "mode": "announce"
+  }
+}
+```
+
+Task routing guide:
+- **Use cron**: fixed-interval inbox triage, exact-time digests, isolated automation agents, “run every 15 minutes / hourly / every morning at 8”.
+- **Use heartbeat**: low-stakes inbox watching, opportunity scanning, “tell me if anything interesting happened”, drift-tolerant background review.
+- **Use preview/approval**: any reply flow that may send a DM or public comment.
 
 Current safe-send posture:
 - DMs can send directly

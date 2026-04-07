@@ -430,6 +430,34 @@ Preferred automation entrypoints:
 - `client_workflows.reply_preview_card` + `approve_and_send_reply` for human-in-the-loop reply execution
 
 Automation design rule:
-- keep cron/jobs attached to stable workflow actions, not fragile low-level endpoint sequences
+- use **OpenClaw Cron Job**, not Unix cron, for OpenClaw-native automation scheduling
+- keep scheduled jobs attached to stable workflow actions, not fragile low-level endpoint sequences
 - let workflow outputs carry normalized schema tags and next-action queues so downstream agents stay thin
 - default to review/queue semantics unless a send path is explicitly proven safe
+
+Cron vs heartbeat rule of thumb:
+- **Cron**: exact schedule, isolated automation runs, recurring digests, fixed interval inbox/task polling
+- **Heartbeat**: drift-tolerant review sweeps, low-priority “check if anything matters”, batched scans that should stay quiet unless needed
+- **Preview/approval path**: any reply flow that may actually send content
+
+OpenClaw Cron Job example:
+
+```json
+{
+  "name": "bilibili-automation-tick",
+  "schedule": {
+    "kind": "cron",
+    "expr": "*/15 * * * *",
+    "tz": "Asia/Shanghai"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run: python main.py client_workflows automation_tick '{\"period\": \"week\", \"max_items\": 5, \"priority_threshold\": 80, \"mode\": \"review\"}'. Summarize top next action and keep replies on preview/approval.",
+    "timeoutSeconds": 120
+  },
+  "delivery": {
+    "mode": "announce"
+  }
+}
+```
