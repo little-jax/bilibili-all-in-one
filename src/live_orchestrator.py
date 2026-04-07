@@ -35,7 +35,9 @@ class BilibiliLiveOrchestrator:
     def __init__(self, auth: Optional[BilibiliAuth] = None):
         self.auth = auth or BilibiliAuth()
         self.obs = BilibiliOBSClient()
-        self.session_cache_path = Path(__file__).resolve().parents[3] / "bilibili-live-session.json"
+        workspace_root = Path(__file__).resolve().parents[3]
+        self.session_cache_path = workspace_root / "bilibili-live-session.json"
+        self.runtime_log_path = workspace_root / "bilibili-live-runtime.jsonl"
 
     def _read_session_cache(self) -> Optional[Dict[str, Any]]:
         try:
@@ -118,6 +120,48 @@ class BilibiliLiveOrchestrator:
         )
 
 
+    def _append_runtime_log(self, entry: Dict[str, Any]) -> None:
+        self.runtime_log_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.runtime_log_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def _read_runtime_log(self, limit: int = 20) -> list[Dict[str, Any]]:
+        if not self.runtime_log_path.exists():
+            return []
+        lines = self.runtime_log_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        items = []
+        for line in lines[-max(0, int(limit)):]:
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(obj, dict):
+                items.append(obj)
+        return items
+
+    async def get_live_runtime_log(self, limit: int = 20) -> Dict[str, Any]:
+        entries = self._read_runtime_log(limit=limit)
+        return self._success(
+            schema="bilibili.live_orchestrator.get_live_runtime_log.v1",
+            path=str(self.runtime_log_path),
+            exists=self.runtime_log_path.exists(),
+            count=len(entries),
+            entries=entries,
+        )
+
+    async def clear_live_runtime_log(self) -> Dict[str, Any]:
+        existed = self.runtime_log_path.exists()
+        previous_count = len(self._read_runtime_log(limit=100000)) if existed else 0
+        if existed:
+            self.runtime_log_path.unlink()
+        return self._success(
+            schema="bilibili.live_orchestrator.clear_live_runtime_log.v1",
+            path=str(self.runtime_log_path),
+            existed=existed,
+            cleared=True,
+            previous_count=previous_count,
+        )
+
     async def get_live_runtime_stats(
         self,
         room_id: Optional[int] = None,
@@ -172,6 +216,67 @@ class BilibiliLiveOrchestrator:
             )
         except Exception as exc:
             return self._failure(f"Failed to fetch live runtime stats: {exc}")
+
+    async def watch_live_runtime(
+        self,
+        room_id: Optional[int] = None,
+        live_key: Optional[str] = None,
+        use_session_cache: bool = True,
+        include_overview: bool = True,
+        interval_seconds: float = 10.0,
+        samples: int = 6,
+        clear_log_first: bool = False,
+        reveal_sensitive: bool = False,
+    ) -> Dict[str, Any]:
+        if (err := self._require_library()) or (err := self._require_auth()):
+            return err
+        try:
+            if clear_log_first and self.runtime_log_path.exists():
+                self.runtime_log_path.unlink()
+            interval_seconds = max(1.0, float(interval_seconds))
+            samples = max(1, int(samples))
+            collected = []
+            for idx in range(samples):
+                stats = await self.get_live_runtime_stats(
+                    room_id=room_id,
+                    live_key=live_key,
+                    use_session_cache=use_session_cache,
+                    include_overview=include_overview,
+                    reveal_sensitive=reveal_sensitive,
+                )
+                if not stats.get("success"):
+                    return self._failure(
+                        "Failed to watch live runtime because a sample fetch failed.",
+                        schema="bilibili.live_orchestrator.watch_live_runtime.v1",
+                        failed_sample_index=idx + 1,
+                        sample_error=stats,
+                    )
+                entry = {
+                    "schema": "bilibili.live_orchestrator.runtime_log_entry.v1",
+                    "sample_index": idx + 1,
+                    "captured_at": int(time.time()),
+                    "room_id": stats.get("room_id"),
+                    "live_key": stats.get("live_key"),
+                    "provisional": stats.get("provisional"),
+                    "room_play_info": stats.get("room_play_info"),
+                    "room_info": stats.get("room_info"),
+                    "stop_like_stats": stats.get("stop_like_stats"),
+                    "overview": stats.get("overview"),
+                }
+                self._append_runtime_log(entry)
+                collected.append(entry)
+                if idx + 1 < samples:
+                    await asyncio.sleep(interval_seconds)
+            return self._success(
+                schema="bilibili.live_orchestrator.watch_live_runtime.v1",
+                path=str(self.runtime_log_path),
+                samples_requested=samples,
+                samples_collected=len(collected),
+                interval_seconds=interval_seconds,
+                latest=collected[-1] if collected else None,
+            )
+        except Exception as exc:
+            return self._failure(f"Failed to watch live runtime: {exc}")
 
     async def recover_live_session(
         self,
@@ -961,7 +1066,10 @@ class BilibiliLiveOrchestrator:
             "stop_live_session": self.stop_live_session,
             "get_live_session_cache": self.get_live_session_cache,
             "clear_live_session_cache": self.clear_live_session_cache,
+            "get_live_runtime_log": self.get_live_runtime_log,
+            "clear_live_runtime_log": self.clear_live_runtime_log,
             "get_live_runtime_stats": self.get_live_runtime_stats,
+            "watch_live_runtime": self.watch_live_runtime,
             "recover_live_session": self.recover_live_session,
             "live_health_check": self.live_health_check,
             "health_check": self.live_health_check,

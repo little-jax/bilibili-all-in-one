@@ -1231,7 +1231,10 @@
               "set_title",
               "get_live_session_cache",
               "clear_live_session_cache",
+              "get_live_runtime_log",
+              "clear_live_runtime_log",
               "get_live_runtime_stats",
+              "watch_live_runtime",
               "recover_live_session"
             ],
             "description": "Orchestration action to perform."
@@ -1319,6 +1322,22 @@
           "include_overview": {
             "type": "boolean",
             "description": "Include /xlive/app-blink/v1/date/Overview when fetching runtime stats or recovery data."
+          },
+          "interval_seconds": {
+            "type": "number",
+            "description": "Sampling interval in seconds for watch_live_runtime."
+          },
+          "samples": {
+            "type": "integer",
+            "description": "Number of runtime samples to capture in watch_live_runtime."
+          },
+          "clear_log_first": {
+            "type": "boolean",
+            "description": "Whether watch_live_runtime should clear the existing JSONL log before sampling."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of runtime log entries to return from get_live_runtime_log."
           }
         },
         "required": [

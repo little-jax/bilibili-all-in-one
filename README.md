@@ -617,6 +617,8 @@ The live surface is now real enough to use, but still opinionated:
 - `get_live_session_cache` reads that workspace cache with sensitive fields masked by default
 - `clear_live_session_cache` deletes that workspace cache for manual recovery / reset
 - `get_live_runtime_stats` reads current room/live-state plus best-effort session stats from `live_key`; mid-stream values are provisional
+- `watch_live_runtime` samples runtime stats on an interval and appends them to workspace JSONL at `bilibili-live-runtime.jsonl`
+- `get_live_runtime_log` reads recent runtime snapshots; `clear_live_runtime_log` resets that log
 - `recover_live_session` combines cache + room health + OBS state + optional runtime stats into a concrete recovery recommendation
 - **Area semantics**
   - current area can be inspected now

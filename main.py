@@ -281,9 +281,12 @@ async def main():
         print("  python main.py live_orchestrator start_live_session '{\"title\": \"Rig/2 live dev\", \"announcement\": \"今晚八点，来。\", \"area_id\": 216, \"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\", \"auto_start_obs\": true}'")
         print("  python main.py live_orchestrator get_live_session_cache")
         print("  python main.py live_orchestrator get_live_runtime_stats")
+        print("  python main.py live_orchestrator watch_live_runtime '{\"interval_seconds\": 10, \"samples\": 6, \"clear_log_first\": true}'")
+        print("  python main.py live_orchestrator get_live_runtime_log '{\"limit\": 20}'")
         print("  python main.py live_orchestrator recover_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
         print("  python main.py live_orchestrator stop_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
         print("  python main.py live_orchestrator clear_live_session_cache")
+        print("  python main.py live_orchestrator clear_live_runtime_log")
         print("  # note: title update is confirmed via POST /room/v1/Room/update; preserve audit_info in responses")
     skill_name = sys.argv[1]
     action = sys.argv[2]
