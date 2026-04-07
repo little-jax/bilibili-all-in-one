@@ -117,10 +117,19 @@ python main.py client_workflows automation_brief '{"period": "week", "max_items"
 
 Read only what you need:
 
-- `references/live-ops.md` — live start/stop/recovery/runtime watching/OBS details
-- `references/community-workflows.md` — reply triage, message-center, client workflows, automation surfaces
-- `references/general-cli.md` — auth, config, installation, downloader/player/publisher/subtitle/general commands
+- `references/auth-and-session.md` — QR login, auth repair, session validation
+- `references/live-ops-interactive.md` — human-in-the-loop live start/stop/recovery
+- `references/live-ops-scheduled.md` — cron/heartbeat/live automation workflows
+- `references/reply-and-message-workflows.md` — replies, comments, inbox triage, automation entrypoints
+- `references/dynamic-and-publishing.md` — dynamics, reposts, notices, publishing-adjacent writes
+- `references/live-ops.md` — broader live technical reference / OBS details
+- `references/community-workflows.md` — broader workflow reference / client workflow detail
+- `references/general-cli.md` — auth, config, installation, downloader/player/subtitle/general commands
 - `references/full-reference.md` — full legacy reference when the targeted files are not enough
+
+### Scheduling rule
+
+If the task is a cron job / heartbeat / scheduled automation, feed the most specific reference file directly instead of loading the whole skill reference set.
 
 ## Notes
 
