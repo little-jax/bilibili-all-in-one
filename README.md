@@ -32,7 +32,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Reply execution loop**: `operator_decision_loop` → `draft_reply_candidate` → `send_or_queue_reply`
 - **Safe public auto-send**: DMs can send directly; public reply auto-send only fires when thread mapping is proven from reply metadata
 - **Automation-facing workflows**: `automation_brief` and `automation_tick` give cron/sub-agent friendly snapshots and next-action queues
-- **Queued live-orchestration direction**: Bilibili live start/stop, RTMP retrieval validation, OBS websocket control, and QR-based pre-live verification handling are now in the development queue
+- **Live orchestration**: Bilibili live preflight/start/stop, RTMP retrieval validation, OBS websocket control, room-profile inspection, announcement updates, pre-start patch planning, and stop-session summary stats (`StopLiveData`)
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs
@@ -47,6 +47,13 @@ In short: it now feels like a real operator-facing skill, not a random endpoint 
 ```bash
 # Investigate a creator with profile + recent content + creator metrics
 python main.py client_workflows investigate_user '{"uid": 434156493, "include_creator_metrics": true, "period": "week"}'
+
+# Inspect / patch / run live orchestration
+python main.py live_orchestrator get_live_room_profile
+python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚八点，来。", "area_id": 216}'
+python main.py live_orchestrator prepare_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+python main.py live_orchestrator start_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true}'
+python main.py live_orchestrator stop_live_session '{"live_key": "<live_key>", "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
 
 # Build reply-ready context from the latest reply thread
 python main.py client_workflows prepare_reply_context '{"source": "reply", "limit": 3}'
@@ -582,6 +589,77 @@ bilibili-all-in-one/
 ## License
 
 This maintained fork is published under **MIT-0**. Upstream attribution is preserved in-project.
+
+## 🔴 Live Orchestration
+
+The live surface is now real enough to use, but still opinionated:
+
+- **Supported now**
+  - `live_orchestrator get_live_room_profile`
+  - `live_orchestrator update_live_announcement`
+  - `live_orchestrator pre_start_room_patch`
+  - `live_orchestrator prepare_live_session`
+  - `live_orchestrator start_live_session`
+  - `live_orchestrator stop_live_session`
+  - `live_orchestrator live_health_check`
+  - `obs_client get_status|get_stream_service|set_stream_service|start_stream|stop_stream|stop_output|get_output_list`
+- **What `stop_live_session` adds**
+  - wraps Bilibili `stopLive`
+  - optionally restores OBS stream target
+  - if `live_key` is provided, fetches `StopLiveData`
+  - returns a normalized summary + derived quality flags
+- **Current title status**
+  - live-room **announcement/news is supported**
+  - live-room **title update is not wired yet** because the write endpoint is still unconfirmed
+  - `pre_start_room_patch` will report title as unsupported instead of guessing
+- **Area semantics**
+  - current area can be inspected now
+  - requested `area_id` is treated as a start-time patch plan because `startLive(area_v2=...)` is the confirmed write path we have wired
+- **OBS stop semantics**
+  - OBS can return `StopStream` 501 when already stopped
+  - this is treated as an idempotent stop path, not a hard failure
+  - if OBS still looks active, the client can fall back to `StopOutput("adv_stream")`
+- **Verification / QR semantics**
+  - `start_live_session` surfaces `need_face_auth` / `qr` as operator-action-required output
+  - do not bury this in logs; route it to a human-visible surface
+
+Practical examples:
+
+```bash
+# Inspect room profile + current title/description/announcement/area
+python main.py live_orchestrator get_live_room_profile
+
+# Patch pre-start state (announcement now; area planned for start-time; title currently unsupported)
+python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚八点，来。", "area_id": 216, "title": "Rig/2 live dev"}'
+
+# Preflight OBS + room state
+python main.py live_orchestrator prepare_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+
+# Start live + apply RTMP to OBS + start OBS output
+python main.py live_orchestrator start_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true}'
+
+# Stop live + fetch end-of-session summary (requires saved live_key from start)
+python main.py live_orchestrator stop_live_session '{"live_key": "<live_key>", "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+
+# Health check with transient grace window
+python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "transient_grace_seconds": 8}'
+```
+
+`StopLiveData` summary notes:
+
+- `summary.duration_seconds` / `duration_minutes`
+- `summary.watched_count`
+- `summary.max_online`
+- `summary.danmu_num`
+- `summary.add_fans`
+- `summary.new_fans_club`
+- `summary.hamster_rmb`
+- `derived.engagement.danmu_per_minute`
+- `derived.engagement.fan_gain_per_hour`
+- `derived.quality_flags.invalid_duration`
+- `derived.quality_flags.empty_session`
+
+If Bilibili returns sentinel junk like `-999999`, the schema keeps it visible via `raw` and marks it in `quality_flags` instead of pretending it is clean data.
 
 ## 🤖 Automation Flow
 

@@ -401,6 +401,17 @@ Turn Bilibili live support into a real operator-facing orchestration layer inste
 - add metadata sanitization / validation so special tags or risky text can be caught before OBS starts pushing
 - keep write operations human-confirmed by default
 
+### Current implemented status snapshot
+- `obs_client` exists and already supports: status, stream-service inspection/update, start/stop stream, stop output, output list, current scene
+- `live_orchestrator` exists and already supports: room profile, announcement update, pre-start patch planning, prepare/start/stop live session, health check
+- `stop_live_session` can now fetch `StopLiveData` when given `live_key`, returning normalized summary + derived quality flags
+- current confirmed live-metadata write surface:
+  - announcement/news: **supported now**
+  - area: **supported as start-time patch** via `startLive(area_v2=...)`
+  - title: **still unconfirmed / unsupported** until a verified write endpoint is found
+- health checks now distinguish healthy vs split state vs transient stop-settling vs OBS reconnecting
+- OBS stop path now treats `StopStream` 501 as idempotent and can fall back to `StopOutput("adv_stream")`
+
 ### Verification / QR presentation track
 - support the real-world Bilibili “scan with mobile client” verification flow that may appear before live start (including face/identity verification or app-confirmed QR flows)
 - treat this like auth QR presentation: default to social-platform delivery first; if that is unavailable, fall back to local image viewer / generated HTML / other operator-visible presentation paths
@@ -458,6 +469,24 @@ Not just:
 
 **a pile of scripts that can post and reply**.
 
+
+## Live Operator Notes
+
+Use this as the quick mental model for current live support:
+
+- `get_live_room_profile` is the safest inspect-first entrypoint
+- `pre_start_room_patch` is the safest place to stage announcement / area / title intent before start
+- `prepare_live_session` is the safest preflight before touching OBS output state
+- `start_live_session` returns the `live_key`; save it if you care about end-of-session stats
+- `stop_live_session` should be given that `live_key` whenever possible so `StopLiveData` can be fetched
+- do not claim title updates are supported yet; the endpoint is still under investigation
+- if QR / face verification appears, surface it as operator action required; do not bury it in logs
+
+Recommended field meanings for live stop summaries:
+- `summary.duration_seconds` / `duration_minutes`: trusted only when non-negative
+- `summary.watched_count`, `max_online`, `danmu_num`, `add_fans`, `new_fans_club`, `hamster_rmb`: useful session rollup
+- `derived.quality_flags.invalid_duration`: Bilibili returned sentinel junk like `-999999`
+- `derived.quality_flags.empty_session`: session appears structurally empty
 
 ## Automation / Cron Guidance
 
