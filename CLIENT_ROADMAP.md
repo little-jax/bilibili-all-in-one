@@ -259,6 +259,7 @@ Phase-4 pieces now in place:
 - structured `interest_profile` inside `prepare_reply_context`
 - schema-tagged workflow outputs for downstream consumers
 - direct-send for DMs plus conservative public reply auto-send only when thread mapping is proven
+- automation-facing workflow entrypoints: `automation_brief` and `automation_tick` for cron/sub-agent orchestration
 
 ### Goal
 Support context-sensitive creator operations.
@@ -419,3 +420,16 @@ This should become:
 Not just:
 
 **a pile of scripts that can post and reply**.
+
+
+## Automation / Cron Guidance
+
+Preferred automation entrypoints:
+- `client_workflows.automation_brief` for rich snapshots
+- `client_workflows.automation_tick` for periodic checks and decision routing
+- `client_workflows.reply_preview_card` + `approve_and_send_reply` for human-in-the-loop reply execution
+
+Automation design rule:
+- keep cron/jobs attached to stable workflow actions, not fragile low-level endpoint sequences
+- let workflow outputs carry normalized schema tags and next-action queues so downstream agents stay thin
+- default to review/queue semantics unless a send path is explicitly proven safe

@@ -31,6 +31,7 @@ This is not just a bag of Bilibili scripts anymore. The maintained OpenClaw fork
 - **Operator triage**: classify inbound intent, estimate urgency, suggest tone, and flag review-required cases
 - **Reply execution loop**: `operator_decision_loop` → `draft_reply_candidate` → `send_or_queue_reply`
 - **Safe public auto-send**: DMs can send directly; public reply auto-send only fires when thread mapping is proven from reply metadata
+- **Automation-facing workflows**: `automation_brief` and `automation_tick` give cron/sub-agent friendly snapshots and next-action queues
 - **Dashboard / analytics**: KPI snapshots, reply target ranking, task queues, and content opportunity briefs
 - **Asset surfaces**: video favorite folders, watch-later, and channel-series collections
 - **Native emoji surface**: inspect and suggest built-in Bilibili emoji packs for more natural-feeling replies/DMs
@@ -57,6 +58,10 @@ python main.py client_workflows draft_reply_candidate '{"source": "reply", "limi
 python main.py client_workflows send_or_queue_reply '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "execute_send": false, "force_public_send": true}'
 python main.py client_workflows reply_preview_card '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
 python main.py client_workflows approve_and_send_reply '{"approved": true, "source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
+
+# Cron / agent friendly automation snapshot
+python main.py client_workflows automation_brief '{"period": "week", "max_items": 5, "priority_threshold": 80}'
+python main.py client_workflows automation_tick '{"period": "week", "max_items": 5, "priority_threshold": 80, "mode": "review"}'
 
 # Build dashboard / queue / opportunity views
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'
@@ -576,3 +581,29 @@ bilibili-all-in-one/
 ## License
 
 This maintained fork is published under **MIT-0**. Upstream attribution is preserved in-project.
+
+## 🤖 Automation Flow
+
+Use the workflow layer for automation. Do **not** make cron jobs stitch together raw inbox / analytics / discovery calls unless you actually need low-level control.
+
+Recommended automation stack:
+
+1. `client_workflows.automation_brief`
+   - one-shot operator snapshot
+   - includes dashboard, task queue, reply targets, opportunities, message-center automation snapshot, and normalized `next_actions`
+2. `client_workflows.automation_tick`
+   - lightweight "what should happen now" result for cron/sub-agents
+   - returns `recommended_mode`, `should_act`, `next_action`, and the full brief
+3. reply loop when human confirmation is required
+   - `reply_preview_card`
+   - `approve_and_send_reply`
+
+Practical rule:
+- use `automation_tick` for periodic checks
+- use `automation_brief` for richer dashboards or agent planning
+- use preview/approval actions for anything that may actually send a reply
+
+Current safe-send posture:
+- DMs can send directly
+- public replies only auto-send when thread mapping is proven from reply metadata
+- ambiguous public targets degrade to queue-only instead of guessing

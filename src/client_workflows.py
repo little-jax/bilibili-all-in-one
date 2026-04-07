@@ -1114,6 +1114,112 @@ class BilibiliClientWorkflows:
             "text": "\n".join(f"- {x['title']} ({x['source']}): {x['reason']}" for x in opportunities),
         }
 
+    def _build_automation_actions(self, *, task_queue: Dict[str, Any], reply_targets: Dict[str, Any], opportunities: Dict[str, Any], priority_threshold: int = 80) -> list:
+        actions = []
+        for task in (task_queue.get("tasks") or [])[:3]:
+            actions.append({
+                "kind": "task",
+                "priority": int(task.get("priority") or 0),
+                "title": task.get("title"),
+                "reason": task.get("reason"),
+                "source": task.get("source"),
+                "payload": task.get("payload"),
+            })
+        for rec in (reply_targets.get("recommendations") or [])[:3]:
+            priority = int(rec.get("priority") or 0)
+            if priority < int(priority_threshold):
+                continue
+            actions.append({
+                "kind": "reply_candidate",
+                "priority": priority,
+                "title": f"回复 {rec.get('target') or 'unknown'}",
+                "reason": rec.get("why_now"),
+                "source": "client_workflows.recommend_reply_targets",
+                "payload": rec,
+            })
+        for opp in (opportunities.get("opportunities") or [])[:2]:
+            actions.append({
+                "kind": "opportunity",
+                "priority": 65,
+                "title": opp.get("title"),
+                "reason": opp.get("reason"),
+                "source": opp.get("source"),
+                "payload": opp,
+            })
+        actions.sort(key=lambda x: int(x.get("priority") or 0), reverse=True)
+        return actions
+
+    async def automation_brief(self, period: str = "week", max_items: int = 5, priority_threshold: int = 80) -> Dict[str, Any]:
+        dashboard = await self.creator_dashboard_snapshot(period=period, max_items=max_items)
+        task_queue = await self.creator_task_queue(period=period, max_items=max_items)
+        reply_targets = await self.recommend_reply_targets(max_items=max_items)
+        opportunities = await self.content_opportunity_brief(period=period, max_items=max_items)
+        automation_snapshot = await self.message_center.automation_snapshot(max_items=max_items)
+
+        next_actions = self._build_automation_actions(
+            task_queue=task_queue if task_queue.get("success") else {},
+            reply_targets=reply_targets if reply_targets.get("success") else {},
+            opportunities=opportunities if opportunities.get("success") else {},
+            priority_threshold=priority_threshold,
+        )
+
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.automation_brief.v1",
+            "period": period,
+            "thresholds": {
+                "priority_reply_threshold": int(priority_threshold),
+                "max_items": int(max_items),
+            },
+            "dashboard": dashboard if dashboard.get("success") else {"success": False, "message": dashboard.get("message")},
+            "task_queue": task_queue if task_queue.get("success") else {"success": False, "message": task_queue.get("message")},
+            "reply_targets": reply_targets if reply_targets.get("success") else {"success": False, "message": reply_targets.get("message")},
+            "opportunities": opportunities if opportunities.get("success") else {"success": False, "message": opportunities.get("message")},
+            "automation_snapshot": automation_snapshot if automation_snapshot.get("success") else {"success": False, "message": automation_snapshot.get("message")},
+            "next_actions": next_actions,
+            "summary": {
+                "next_action_count": len(next_actions),
+                "top_action": (next_actions[0].get("title") if next_actions else None),
+            },
+            "text": "\n".join(
+                [f"- p{item.get('priority', 0)} {item.get('title')}: {self._snip(item.get('reason'))}" for item in next_actions]
+            ),
+        }
+
+    async def automation_tick(
+        self,
+        period: str = "week",
+        max_items: int = 5,
+        priority_threshold: int = 80,
+        mode: str = "review",
+    ) -> Dict[str, Any]:
+        brief = await self.automation_brief(period=period, max_items=max_items, priority_threshold=priority_threshold)
+        if not brief.get("success"):
+            return brief
+
+        next_actions = brief.get("next_actions") or []
+        mode_normalized = (mode or "review").strip().lower()
+        recommended_mode = "idle"
+        if next_actions:
+            top = next_actions[0]
+            if top.get("kind") == "reply_candidate" and int(top.get("priority") or 0) >= int(priority_threshold):
+                recommended_mode = "reply"
+            elif top.get("kind") == "task":
+                recommended_mode = "review"
+            else:
+                recommended_mode = "discover"
+
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.automation_tick.v1",
+            "mode": mode_normalized,
+            "recommended_mode": recommended_mode,
+            "should_act": bool(next_actions),
+            "next_action": next_actions[0] if next_actions else None,
+            "next_actions": next_actions,
+            "brief": brief,
+            "text": brief.get("text") or "No automation actions right now.",
+        }
 
     async def classify_inbound_intent(
         self,
@@ -1475,6 +1581,8 @@ class BilibiliClientWorkflows:
             "send_or_queue_reply": self.send_or_queue_reply,
             "reply_preview_card": self.reply_preview_card,
             "approve_and_send_reply": self.approve_and_send_reply,
+            "automation_brief": self.automation_brief,
+            "automation_tick": self.automation_tick,
         }
         handler = actions.get(action)
         if not handler:

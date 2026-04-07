@@ -678,7 +678,9 @@
               "draft_reply_candidate",
               "send_or_queue_reply",
               "reply_preview_card",
-              "approve_and_send_reply"
+              "approve_and_send_reply",
+              "automation_brief",
+              "automation_tick"
             ]
           },
           "target": {
@@ -738,6 +740,15 @@
           },
           "approved": {
             "type": "boolean"
+          },
+          "period": {
+            "type": "string"
+          },
+          "priority_threshold": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "string"
           }
         },
         "required": [

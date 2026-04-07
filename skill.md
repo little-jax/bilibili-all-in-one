@@ -418,6 +418,8 @@ python main.py client_workflows draft_reply_candidate '{"source": "reply", "limi
 python main.py client_workflows send_or_queue_reply '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "execute_send": false, "force_public_send": true}'
 python main.py client_workflows reply_preview_card '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
 python main.py client_workflows approve_and_send_reply '{"approved": true, "source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
+python main.py client_workflows automation_brief '{"period": "week", "max_items": 5, "priority_threshold": 80}'
+python main.py client_workflows automation_tick '{"period": "week", "max_items": 5, "priority_threshold": 80, "mode": "review"}'
 
 # Unified operator / creator dashboard snapshot
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'
