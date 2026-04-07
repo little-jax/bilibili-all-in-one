@@ -728,6 +728,11 @@ class BilibiliLiveOrchestrator:
         obs_port: Optional[int] = None,
         obs_password: Optional[str] = None,
         obs_timeout: Optional[float] = None,
+        watch_runtime: bool = False,
+        watch_interval_seconds: float = 10.0,
+        watch_samples: int = 6,
+        watch_clear_log_first: bool = False,
+        watch_include_overview: bool = False,
         reveal_sensitive: bool = False,
         auto_start_obs: bool = True,
         settle_seconds: float = 2.0,
@@ -856,6 +861,18 @@ class BilibiliLiveOrchestrator:
                 password=obs_password,
                 timeout=obs_timeout,
             )
+            runtime_watch = None
+            if watch_runtime:
+                runtime_watch = await self.watch_live_runtime(
+                    room_id=resolved_room_id,
+                    live_key=start_resp.get("live_key"),
+                    use_session_cache=True,
+                    include_overview=watch_include_overview,
+                    interval_seconds=watch_interval_seconds,
+                    samples=watch_samples,
+                    clear_log_first=watch_clear_log_first,
+                    reveal_sensitive=reveal_sensitive,
+                )
             return self._success(
                 schema="bilibili.live_orchestrator.start_live_session.v2",
                 room_id=resolved_room_id,
@@ -874,6 +891,7 @@ class BilibiliLiveOrchestrator:
                 obs_apply=apply_resp,
                 obs_start=obs_start,
                 obs_status=obs_status,
+                runtime_watch=runtime_watch,
                 previous_obs_stream_service=original_service,
                 session_cache={
                     "path": str(self.session_cache_path),

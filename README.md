@@ -618,6 +618,7 @@ The live surface is now real enough to use, but still opinionated:
 - `clear_live_session_cache` deletes that workspace cache for manual recovery / reset
 - `get_live_runtime_stats` reads current room/live-state plus best-effort session stats from `live_key`; mid-stream values are provisional
 - `watch_live_runtime` samples runtime stats on an interval and appends them to workspace JSONL at `bilibili-live-runtime.jsonl`
+- `start_live_session` can auto-trigger that watcher so a live timeline starts collecting immediately without a second command
 - `get_live_runtime_log` reads recent runtime snapshots; `clear_live_runtime_log` resets that log
 - `recover_live_session` combines cache + room health + OBS state + optional runtime stats into a concrete recovery recommendation
 - **Area semantics**
@@ -644,7 +645,7 @@ python main.py live_orchestrator pre_start_room_patch '{"announcement": "今晚�
 python main.py live_orchestrator prepare_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
 
 # Start live + patch title/announcement/area + apply RTMP to OBS + start OBS output
-python main.py live_orchestrator start_live_session '{"title": "Rig/2 live dev", "announcement": "今晚八点，来。", "area_id": 216, "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true}'
+python main.py live_orchestrator start_live_session '{"title": "Rig/2 live dev", "announcement": "今晚八点，来。", "area_id": 216, "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true, "watch_runtime": true, "watch_interval_seconds": 10, "watch_samples": 6, "watch_clear_log_first": true}'
 
 # Stop live + fetch end-of-session summary (requires saved live_key from start)
 python main.py live_orchestrator stop_live_session '{"live_key": "<live_key>", "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
@@ -741,3 +742,24 @@ Current safe-send posture:
 - DMs can send directly
 - public replies only auto-send when thread mapping is proven from reply metadata
 - ambiguous public targets degrade to queue-only instead of guessing
+
+## Live Workflow Examples
+
+```bash
+# 1) Quiet smoke test: start, sample a short runtime timeline, then stop using cached live_key
+python main.py live_orchestrator start_live_session '{"area_id": 216, "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true, "watch_runtime": true, "watch_interval_seconds": 5, "watch_samples": 3, "watch_clear_log_first": true}'
+python main.py live_orchestrator get_live_runtime_log '{"limit": 10}'
+python main.py live_orchestrator stop_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+
+# 2) Recover from another session / after a restart
+python main.py live_orchestrator get_live_session_cache
+python main.py live_orchestrator recover_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+
+# 3) Capture a lightweight timeline during an already-running live
+python main.py live_orchestrator watch_live_runtime '{"interval_seconds": 15, "samples": 12, "include_overview": false}'
+python main.py live_orchestrator get_live_runtime_log '{"limit": 20}'
+
+# 4) Hard reset local state if the live is definitely over and cache is stale
+python main.py live_orchestrator clear_live_session_cache
+python main.py live_orchestrator clear_live_runtime_log
+```

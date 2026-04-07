@@ -1338,6 +1338,26 @@
           "limit": {
             "type": "integer",
             "description": "Maximum number of runtime log entries to return from get_live_runtime_log."
+          },
+          "watch_runtime": {
+            "type": "boolean",
+            "description": "When true, start_live_session immediately samples runtime stats into the workspace JSONL log after starting."
+          },
+          "watch_interval_seconds": {
+            "type": "number",
+            "description": "Sampling interval in seconds when start_live_session triggers runtime watching."
+          },
+          "watch_samples": {
+            "type": "integer",
+            "description": "Number of runtime samples to capture when start_live_session triggers runtime watching."
+          },
+          "watch_clear_log_first": {
+            "type": "boolean",
+            "description": "Whether start_live_session should clear the runtime JSONL log before auto-watching."
+          },
+          "watch_include_overview": {
+            "type": "boolean",
+            "description": "Whether start_live_session auto-watch should include the Bilibili Overview payload on each sample."
           }
         },
         "required": [

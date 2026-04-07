@@ -278,7 +278,7 @@ async def main():
         print("  python main.py live_orchestrator update_live_title '{\"title\": \"Rig/2 live dev\"}'")
         print("  python main.py live_orchestrator pre_start_room_patch '{\"announcement\": \"今晚八点，来。\", \"area_id\": 216, \"title\": \"Rig/2 live dev\"}'")
         print("  python main.py live_orchestrator prepare_live_session '{\"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\"}'")
-        print("  python main.py live_orchestrator start_live_session '{\"title\": \"Rig/2 live dev\", \"announcement\": \"今晚八点，来。\", \"area_id\": 216, \"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\", \"auto_start_obs\": true}'")
+        print("  python main.py live_orchestrator start_live_session '{\"title\": \"Rig/2 live dev\", \"announcement\": \"今晚八点，来。\", \"area_id\": 216, \"obs_host\": \"127.0.0.1\", \"obs_port\": 4455, \"obs_password\": \"...\", \"auto_start_obs\": true, \"watch_runtime\": true, \"watch_interval_seconds\": 10, \"watch_samples\": 6, \"watch_clear_log_first\": true}'")
         print("  python main.py live_orchestrator get_live_session_cache")
         print("  python main.py live_orchestrator get_live_runtime_stats")
         print("  python main.py live_orchestrator watch_live_runtime '{\"interval_seconds\": 10, \"samples\": 6, \"clear_log_first\": true}'")
