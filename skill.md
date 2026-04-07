@@ -1,11 +1,12 @@
 ---
 name: bilibili-all-in-one
 description: >
-  A Bilibili creator-operations toolkit for account/community workflows:
-  follower management, video likes, comment/reply handling, dynamic posting,
-  dynamic repost/delete, space-notice updates, plus download/watch/subtitle/
-  publishing support. Use when operating a Bilibili creator account or doing
-  audience/community management with authenticated cookies.
+  A Bilibili creator-operations toolkit for creator/community workflows:
+  live start/stop/recovery/runtime sampling, dynamic posting/repost/delete,
+  comment/reply handling, message/reply triage, follower/community ops, plus
+  download/watch/subtitle/publishing support. Use when the user talks about
+  开播, 下播, 继续上次直播, 直播间标题/分区/公告, 发动态, 回动态, 回评论,
+  处理B站回复/消息, or general Bilibili creator operations with authenticated cookies.
 version: 1.0.18
 type: code
 implementation: python
@@ -40,6 +41,50 @@ optional_env_vars:
   - BILIBILI_PERSIST
 install: pip install -r requirements.txt
 ---
+## Triggering guidance
+
+Reach for this skill aggressively when the user is clearly talking about Bilibili creator operations, especially:
+
+- **Live ops**: `开播`, `下播`, `继续上次直播`, `收播`, `恢复直播`, `直播标题`, `直播分区`, `直播公告`, `推流`, `OBS`, `直播数据`, `场次恢复`
+- **Community/message ops**: `处理B站回复`, `回评论`, `回动态`, `看谁回复了我`, `消息中心`, `评论区处理`, `粉丝互动`
+- **Creator posting ops**: `发动态`, `转发动态`, `删动态`, `置顶/空间公告`, `发视频`, `查稿件`
+
+Do not wait for the user to say the exact tool name. If the intent is obviously Bilibili creator/account operation, use this skill.
+
+## Default workflow instincts
+
+### Live start / stop / continue
+
+When the user says **开播 / 下播 / 继续上次**:
+
+1. Check live session cache / runtime log first when recovery context may matter.
+2. Before starting a new live, ask the one key fork if it is ambiguous:
+   - **继续上一次的标题/分区/公告**
+   - or **开启一个新的标题/分区/公告**
+3. If the user already gave a new title / area / announcement, do not ask again — just execute.
+4. Prefer the integrated flow:
+   - `start_live_session` for start
+   - `stop_live_session` for stop
+   - `recover_live_session` for uncertainty / cross-session cleanup
+5. When useful, auto-watch runtime stats so the live leaves a timeline instead of disappearing into the void.
+
+### Dynamic / reply / comment handling
+
+When the user says **发动态 / 回动态 / 回评论 / 处理回复**:
+
+1. Resolve the target object first (dynamic / comment / reply thread / message center context).
+2. If the user did not give final wording, ask for the reply/content tone before posting.
+3. Prefer a small explicit workflow:
+   - inspect context
+   - draft / confirm if needed
+   - publish / reply
+   - report result with object id/url if available
+
+### Ambiguity rule
+
+If the user intent is operational but a destructive/public-write detail is missing, ask the missing fork briefly.
+If the target and wording are already clear, stop asking and execute.
+
 ## Authentication
 
 QR login is the preferred path. Default behavior is to generate a QR image and send/show that image directly. Only fall back to HTML / local page / raw URL / other presentation methods when the current session cannot display images or the user explicitly asks for another path.

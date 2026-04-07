@@ -763,3 +763,56 @@ python main.py live_orchestrator get_live_runtime_log '{"limit": 20}'
 python main.py live_orchestrator clear_live_session_cache
 python main.py live_orchestrator clear_live_runtime_log
 ```
+
+## Workflow Playbooks
+
+### 1. 开播前分叉：延续上次，还是新场次？
+
+当用户说“开播”但没有明确这次是否沿用旧设置时，先问这一个关键问题：
+
+- 继续上一次的标题 / 分区 / 公告
+- 还是这次开一个新的标题 / 分区 / 公告
+
+如果用户已经直接给了新的标题、分区、公告，就不要重复确认，直接执行 `start_live_session`。
+
+### 2. 最小直播工作流
+
+```bash
+# 开播并立刻开始采样 runtime timeline
+python main.py live_orchestrator start_live_session '{"area_id": 216, "obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "...", "auto_start_obs": true, "watch_runtime": true, "watch_interval_seconds": 10, "watch_samples": 6, "watch_clear_log_first": true}'
+
+# 查看最近 runtime 采样
+python main.py live_orchestrator get_live_runtime_log '{"limit": 10}'
+
+# 收播（默认读取 workspace cache 里的 live_key）
+python main.py live_orchestrator stop_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+```
+
+### 3. 跨会话恢复工作流
+
+```bash
+# 查当前缓存
+python main.py live_orchestrator get_live_session_cache
+
+# 让系统判断现在该继续、该 stop、还是该清缓存
+python main.py live_orchestrator recover_live_session '{"obs_host": "127.0.0.1", "obs_port": 4455, "obs_password": "..."}'
+```
+
+### 4. 动态 / 评论 / 回复处理工作流
+
+推荐脑内顺序：
+
+1. 先定位对象（动态、评论、回复线程、消息中心来源）
+2. 若用户没给最终文案，先给一个短草稿或直接问回复口吻
+3. 用户确认后再执行写操作
+4. 返回结果时附上对象 id / url / 成功状态
+
+### 5. 什么时候该主动问一句？
+
+只在下面这些缺口存在时问：
+
+- 这次直播是继续上次配置，还是新标题/新分区/新公告
+- 要回复哪条动态 / 哪条评论 / 哪个对象
+- 要发出去的具体文案还没定
+
+别为了显得谨慎而废话。信息够了就直接干。

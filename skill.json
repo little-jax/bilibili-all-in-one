@@ -1,6 +1,6 @@
 {
   "name": "bilibili-all-in-one",
-  "description": "A comprehensive Bilibili toolkit that integrates hot trending monitoring, video downloading, video watching/playback, subtitle downloading, and video publishing capabilities into a single skill, plus QR-first login/session workflows.",
+  "description": "A comprehensive Bilibili creator-operations toolkit covering live start/stop/recovery/runtime stats, dynamic posting/repost/delete, comment/reply/message handling, community ops, and publishing workflows. Use it aggressively when the user mentions 开播, 下播, 继续上次直播, 标题/分区/公告, 发动态, 回动态, 回评论, 处理B站回复/消息, or general Bilibili creator account operations.",
   "version": "1.0.18",
   "author": "Little Jax / Mozi A.",
   "license": "MIT-0",
