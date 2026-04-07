@@ -385,6 +385,60 @@ class BilibiliClientWorkflows:
             "focus_id": focus.get("id"),
         }
 
+    def _build_preview_card(self, *, draft: Dict[str, Any], draft_text: str, send_plan: Dict[str, Any], force_public_send: bool = False) -> Dict[str, Any]:
+        decision = draft.get("decision") or {}
+        operator_brief = draft.get("operator_brief") or {}
+        context = draft.get("context") or {}
+        interaction = (context.get("interaction_context") or {})
+        object_info = operator_brief.get("object") or {}
+        warnings = []
+        if not draft_text:
+            warnings.append("Draft text is empty.")
+        if decision.get("review_required"):
+            warnings.append("Human review is recommended before sending.")
+        if send_plan.get("mode") == "queue_only":
+            warnings.append(send_plan.get("reason") or "This reply cannot be auto-sent yet.")
+
+        mode = send_plan.get("mode") or "unknown"
+        can_send_now = bool(draft_text) and mode in {"direct_send", "public_comment_send"}
+        title_map = {
+            "direct_send": "Reply preview — direct DM send ready",
+            "public_comment_send": "Reply preview — public reply send ready",
+            "queue_only": "Reply preview — queue fallback",
+        }
+        action_labels = {
+            "primary": "Approve and send" if can_send_now else "Queue reply",
+            "secondary": "Edit draft",
+        }
+
+        return {
+            "title": title_map.get(mode, "Reply preview"),
+            "summary": {
+                "who": operator_brief.get("who"),
+                "object": object_info.get("title") or object_info.get("type"),
+                "decision": decision.get("action"),
+                "reason": decision.get("reason"),
+                "channel": interaction.get("kind") or ((context.get("reply_targets") or {}).get("source_kind")),
+                "send_mode": mode,
+                "can_send_now": can_send_now,
+                "needs_confirmation": can_send_now,
+                "force_public_send": bool(force_public_send),
+            },
+            "draft": {
+                "text": draft_text,
+                "ready": bool(draft_text),
+                "tone": ((operator_brief.get("style") or {}).get("tone")),
+            },
+            "checks": {
+                "review_required": bool(decision.get("review_required")),
+                "should_reply": bool(decision.get("should_reply")),
+                "supported_send": bool(send_plan.get("supported")),
+            },
+            "warnings": warnings,
+            "actions": action_labels,
+            "send_plan": send_plan,
+        }
+
     @staticmethod
     def _extract_first_match(pattern: str, value: Any) -> Optional[str]:
         text = "" if value is None else str(value)
@@ -1314,6 +1368,95 @@ class BilibiliClientWorkflows:
             "draft": {"text": final_text, "ready": bool(final_text)},
         }
 
+    async def reply_preview_card(
+        self,
+        text: str = "",
+        target: Optional[str] = None,
+        source: str = "reply",
+        receiver_id: Optional[int] = None,
+        limit: int = 10,
+        draft_text: Optional[str] = None,
+        force_public_send: bool = False,
+    ) -> Dict[str, Any]:
+        draft = await self.draft_reply_candidate(text=text, target=target, source=source, receiver_id=receiver_id, limit=limit)
+        if not draft.get("success"):
+            return draft
+
+        final_text = (draft_text or ((draft.get("draft") or {}).get("text")) or "").strip()
+        send_plan = self._build_send_plan(
+            context=draft.get("context") or {},
+            draft_text=final_text,
+            force_public_send=bool(force_public_send),
+        )
+        preview = self._build_preview_card(
+            draft=draft,
+            draft_text=final_text,
+            send_plan=send_plan,
+            force_public_send=bool(force_public_send),
+        )
+        return {
+            "success": True,
+            "schema": "bilibili.client_workflows.reply_preview_card.v1",
+            "preview": preview,
+            "decision": draft.get("decision"),
+            "interest_profile": draft.get("interest_profile"),
+            "operator_brief": draft.get("operator_brief"),
+            "draft": {"text": final_text, "ready": bool(final_text)},
+            "send_plan": send_plan,
+            "context": draft.get("context"),
+        }
+
+    async def approve_and_send_reply(
+        self,
+        approved: bool = False,
+        text: str = "",
+        target: Optional[str] = None,
+        source: str = "reply",
+        receiver_id: Optional[int] = None,
+        limit: int = 10,
+        draft_text: Optional[str] = None,
+        force_public_send: bool = False,
+    ) -> Dict[str, Any]:
+        preview = await self.reply_preview_card(
+            text=text,
+            target=target,
+            source=source,
+            receiver_id=receiver_id,
+            limit=limit,
+            draft_text=draft_text,
+            force_public_send=force_public_send,
+        )
+        if not preview.get("success"):
+            return preview
+        if not approved:
+            return {
+                "success": False,
+                "schema": "bilibili.client_workflows.approve_and_send_reply.v1",
+                "message": "Explicit approval required. Re-run with approved=true to send.",
+                "approved": False,
+                "preview": preview.get("preview"),
+                "send_plan": preview.get("send_plan"),
+                "draft": preview.get("draft"),
+            }
+
+        sent = await self.send_or_queue_reply(
+            text=text,
+            target=target,
+            source=source,
+            receiver_id=receiver_id,
+            limit=limit,
+            draft_text=draft_text,
+            execute_send=True,
+            force_public_send=force_public_send,
+        )
+        return {
+            "success": bool(sent.get("success")),
+            "schema": "bilibili.client_workflows.approve_and_send_reply.v1",
+            "approved": True,
+            "preview": preview.get("preview"),
+            **sent,
+        }
+
     async def execute(self, action: str, **kwargs) -> Dict[str, Any]:
         actions = {
             "content_object_lookup": self.content_object_lookup,
@@ -1330,6 +1473,8 @@ class BilibiliClientWorkflows:
             "operator_decision_loop": self.operator_decision_loop,
             "draft_reply_candidate": self.draft_reply_candidate,
             "send_or_queue_reply": self.send_or_queue_reply,
+            "reply_preview_card": self.reply_preview_card,
+            "approve_and_send_reply": self.approve_and_send_reply,
         }
         handler = actions.get(action)
         if not handler:

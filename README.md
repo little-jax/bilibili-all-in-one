@@ -55,6 +55,8 @@ python main.py client_workflows operator_triage '{"source": "reply", "limit": 5}
 python main.py client_workflows operator_decision_loop '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
 python main.py client_workflows draft_reply_candidate '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目"}'
 python main.py client_workflows send_or_queue_reply '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "execute_send": false, "force_public_send": true}'
+python main.py client_workflows reply_preview_card '{"source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
+python main.py client_workflows approve_and_send_reply '{"approved": true, "source": "reply", "limit": 5, "text": "想合作推广一下这个项目", "force_public_send": true}'
 
 # Build dashboard / queue / opportunity views
 python main.py client_workflows creator_dashboard_snapshot '{"period": "week", "max_items": 5}'

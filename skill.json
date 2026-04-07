@@ -676,7 +676,9 @@
               "operator_triage",
               "operator_decision_loop",
               "draft_reply_candidate",
-              "send_or_queue_reply"
+              "send_or_queue_reply",
+              "reply_preview_card",
+              "approve_and_send_reply"
             ]
           },
           "target": {
@@ -732,6 +734,9 @@
             "type": "boolean"
           },
           "force_public_send": {
+            "type": "boolean"
+          },
+          "approved": {
             "type": "boolean"
           }
         },
