@@ -126,6 +126,7 @@ Read only what you need:
 - `references/community-workflows.md` — broader workflow reference / client workflow detail
 - `references/general-cli.md` — auth, config, installation, downloader/player/subtitle/general commands
 - `references/full-reference.md` — full legacy reference when the targeted files are not enough
+- `references/cron-templates.md` — copy-ready OpenClaw cron templates for live checks, reply review, drafts, and auth health
 
 ### Scheduling rule
 
