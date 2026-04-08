@@ -63,7 +63,7 @@
     {
       "name": "BILIBILI_MESSAGE_CENTER_CONFIG",
       "type": "string",
-      "description": "Optional path override for the message-center config. Default active config is ~/.openclaw/workspace/bilibili-message-center.json and the skill-local config/message-center.example.json is only a template.",
+      "description": "Optional path override for the message-center config. By default the skill auto-detects the OpenClaw workspace root and uses <workspace>/bilibili-message-center.json; the skill-local config/message-center.example.json is only a template.",
       "required": false,
       "sensitive": false
     }

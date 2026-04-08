@@ -288,7 +288,7 @@ python main.py message_center dm_history '{"talker_id": 123456, "session_type": 
 python main.py message_center send_text '{"receiver_id": 123456, "text": "你好，这里是测试私信。"}'
 
 # Config-driven automation rules live outside code
-# Default config file: ~/.openclaw/workspace/bilibili-message-center.json (actual workspace root file)
+# Default config file: <workspace>/bilibili-message-center.json (workspace root is auto-detected)
 # Template/reference only: skills/bilibili-all-in-one/config/message-center.example.json
 # Optional override: export BILIBILI_MESSAGE_CENTER_CONFIG=/path/to/override.json
 
@@ -576,7 +576,7 @@ Creator analytics client backed by `bilibili_api.creative_center`, intended for 
 
 Workspace live-session cache:
 
-- path: `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`
+- path: `<workspace>/bilibili-live-session.json` (workspace root is auto-detected)
 - written on successful live start
 - read on stop when `live_key` is omitted
 - preserves `last_stop_stats` / `last_live_key` after stop for later inspection

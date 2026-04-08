@@ -66,7 +66,7 @@ python main.py live_orchestrator live_health_check '{"obs_host": "127.0.0.1", "o
 
 Workspace live-session cache:
 
-- path: `/Users/jaxlocke/.openclaw/workspace/bilibili-live-session.json`
+- path: `<workspace>/bilibili-live-session.json` (workspace root is auto-detected)
 - written on successful live start
 - read on stop when `live_key` is omitted
 - preserves `last_stop_stats` / `last_live_key` after stop for later inspection

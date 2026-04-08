@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 from .auth import BilibiliAuth
 from .client_base import BILIBILI_API_AVAILABLE, BILIBILI_API_IMPORT_ERROR
 from .obs_client import BilibiliOBSClient
+from .workspace_paths import workspace_path
 
 try:
     from bilibili_api import Credential
@@ -35,9 +36,8 @@ class BilibiliLiveOrchestrator:
     def __init__(self, auth: Optional[BilibiliAuth] = None):
         self.auth = auth or BilibiliAuth()
         self.obs = BilibiliOBSClient()
-        workspace_root = Path(__file__).resolve().parents[3]
-        self.session_cache_path = workspace_root / "bilibili-live-session.json"
-        self.runtime_log_path = workspace_root / "bilibili-live-runtime.jsonl"
+        self.session_cache_path = workspace_path("bilibili-live-session.json")
+        self.runtime_log_path = workspace_path("bilibili-live-runtime.jsonl")
 
     def _read_session_cache(self) -> Optional[Dict[str, Any]]:
         try:

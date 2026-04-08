@@ -7,9 +7,9 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-SKILL_ROOT = Path(__file__).resolve().parent.parent
-WORKSPACE_ROOT = SKILL_ROOT.parent.parent
-DEFAULT_MESSAGE_CENTER_CONFIG = WORKSPACE_ROOT / "bilibili-message-center.json"
+from .workspace_paths import SKILL_ROOT, workspace_path
+
+DEFAULT_MESSAGE_CENTER_CONFIG = workspace_path("bilibili-message-center.json")
 TEMPLATE_MESSAGE_CENTER_CONFIG = SKILL_ROOT / "config" / "message-center.example.json"
 ENV_MESSAGE_CENTER_CONFIG = "BILIBILI_MESSAGE_CENTER_CONFIG"
 
